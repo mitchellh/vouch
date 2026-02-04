@@ -23,5 +23,10 @@ export use cli.nu [
   gh-manage-by-issue
 ]
 
-# Library
+# This exposes the function so `open <file>.td` works.
+export use file.nu [
+  "from td"
+]
+
+# The API if people want to use this as a Nu library. 
 export module lib.nu
