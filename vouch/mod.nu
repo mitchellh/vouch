@@ -19,6 +19,9 @@ export use cli.nu [
   add
   check
   denounce
+]
+
+export use github.nu [
   gh-check-pr
   gh-manage-by-issue
 ]
