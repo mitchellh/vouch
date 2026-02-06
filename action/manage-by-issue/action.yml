@@ -1,0 +1,82 @@
+name: Manage by Issue
+description: Manage contributor vouch status via issue comments (lgtm/denounce).
+
+inputs:
+  comment-id:
+    description: GitHub comment ID.
+    required: true
+  issue-id:
+    description: GitHub issue number.
+    required: true
+  repo:
+    description: Repository in "owner/repo" format.
+    required: true
+  allow-denounce:
+    description: Enable "denounce" handling to denounce users.
+    required: false
+    default: "true"
+  allow-vouch:
+    description: Enable "lgtm" handling to vouch for contributors.
+    required: false
+    default: "true"
+  dry-run:
+    description: Print what would happen without making changes.
+    required: false
+    default: "false"
+  vouched-file:
+    description: Path to the vouched contributors file (empty = auto-detect).
+    required: false
+    default: ""
+
+outputs:
+  status:
+    description: "Result status: vouched, denounced, or unchanged."
+    value: ${{ steps.run.outputs.status }}
+
+runs:
+  using: composite
+  steps:
+    - uses: hustcer/setup-nu@v3
+      with:
+        version: "*"
+
+    - id: run
+      shell: nu {0}
+      run: |
+        use $"($env.GITHUB_ACTION_PATH)/../../vouch" *
+
+        let output = (gh-manage-by-issue
+          ${{ inputs.issue-id }}
+          ${{ inputs.comment-id }}
+          --repo "${{ inputs.repo }}"
+          --vouched-file "${{ inputs.vouched-file }}"
+          --allow-vouch=${{ inputs.allow-vouch }}
+          --allow-denounce=${{ inputs.allow-denounce }}
+          --dry-run=${{ inputs.dry-run }}
+        )
+        print $output
+
+        let status = $output | lines | last
+        $"status=($status)" | save --append $env.GITHUB_OUTPUT
+
+    - if: inputs.dry-run == 'false'
+      shell: nu {0}
+      run: |
+        let diff = git diff --quiet | complete
+        if $diff.exit_code == 0 {
+          print "No changes to commit"
+          exit 0
+        }
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        let vouched_file = "${{ inputs.vouched-file }}"
+        if ($vouched_file | is-empty) {
+          git add -A
+        } else {
+          git add $vouched_file
+        }
+
+        git commit -m "Update VOUCHED list"
+        git push
