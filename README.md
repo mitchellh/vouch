@@ -1,24 +1,22 @@
-# Vouch System
+# Vouch
 
-This implements a system where users must be vouched prior to interacting
-with certain parts of the project. The implementation in this folder is generic
-and can be used by any project.
+A project trust management system. People must be **vouched for** before
+interacting with certain parts of a project (the exact parts are
+configurable to the project to enforce). People can also be explicitly
+**denounced** to block them from interacting with the project.
 
-Going further, the vouch system also has an explicit **denouncement** feature,
-where particularly bad actors can be explicitly denounced. This blocks
-these users from interacting with the project completely but also makes
-it a public record for other projects to see and use if they so wish.
+The implementation is generic and can be used by any project on any code forge,
+but we provide GitHub integration out of the box, including a GitHub action
+provided by this repository.
 
-The vouch list is maintained in a single flat file with a purposefully
-minimal format that can be trivially parsed using standard POSIX tools and
-any programming language without any external libraries.
-
-This is based on ideas I first saw in the [Pi project](https://github.com/badlogic/pi-mono).
+The vouch list is maintained in a single flat file using a minimal format
+that can be trivially parsed using standard POSIX tools and any programming
+language without external libraries.
 
 > [!WARNING]
 >
-> This is a work-in-progress and experimental system. We're going to
-> continue to test this in Ghostty, refine it, and improve it over time.
+> This is an experimental system in use by [Ghostty](https://github.com/ghostty-org/ghostty).
+> We'll continue to improve the system based on experience and feedback.
 
 ## Why?
 
@@ -42,53 +40,49 @@ trusted individuals (active members of the community in any form). So,
 let's move to an explicit trust model where trusted individuals can vouch
 for others, and those vouched individuals can then contribute.
 
-## Installation
+## Vouched File Format
 
-This is a [Nu](https://www.nushell.sh/) module. Add it to your project or use it directly:
-
-```nu
-use vouch
-```
-
-## Usage
-
-### VOUCHED File
-
-See [VOUCHED.example.td](VOUCHED.example.td) for the file format. The file is
-looked up at `VOUCHED.td` or `.github/VOUCHED.td` by default. Create an
-empty `VOUCHED.td` file.
-
-Overview:
+The vouch list is stored in a `.td` file. See
+[VOUCHED.example.td](VOUCHED.example.td) for an example. The file is
+looked up at `VOUCHED.td` or `.github/VOUCHED.td` by default.
 
 ```
 # Comments start with #
+username
 platform:username
 -platform:denounced-user
 -platform:denounced-user reason for denouncement
 ```
 
-The platform prefix (e.g., `github:`) specifies where the user identity
-comes from. The platform prefix is optional, since most projects exist
-within the realm of a single platform. All the commands below take
-`--default-platform` flags to specify what platform to assume when none
-is present.
+- One handle per line (without `@`), sorted alphabetically.
+- Optionally specify a platform prefix: `platform:username` (e.g., `github:mitchellh`).
+- Denounce a user by prefixing with `-`.
+- Optionally add details after a space following the handle.
 
-### Commands
+The `from td` and `to td` commands are exported by the module, so
+Nushell's `open` command works natively with `.td` files to decode
+into structured tables and encode back to the file format with
+comments and whitespace preserved.
 
-#### Integrated Help
+## CLI Usage
 
-This is Nu, so you can get help on any command:
+The CLI is implemented as a Nushell module and only requires
+Nushell to run. There are no other external dependencies.
 
-```bash
-use vouch *; help main
-use vouch *; help main add
-use vouch *; help main check
-use vouch *; help main denounce
-use vouch *; help main gh-check-pr
-use vouch *; help main gh-manage-by-issue
+### Integrated Help
+
+This is Nushell, so you can get help on any command:
+
+```nu
+use vouch *
+help add
+help check
+help denounce
+help gh-check-pr
+help gh-manage-by-issue
 ```
 
-#### Local Commands
+### Local Commands
 
 **Check a user's vouch status:**
 
@@ -101,35 +95,35 @@ Exit codes: 0 = vouched, 1 = denounced, 2 = unknown.
 **Add a user to the vouched list:**
 
 ```bash
-# Dry run (default) - see what would happen
+# Preview new file contents (default)
 vouch add someuser
 
-# Actually add the user
+# Write the file in-place
 vouch add someuser --write
 ```
 
 **Denounce a user:**
 
 ```bash
-# Dry run (default)
+# Preview new file contents (default)
 vouch denounce badactor
 
 # With a reason
 vouch denounce badactor --reason "Submitted AI slop"
 
-# Actually denounce
+# Write the file in-place
 vouch denounce badactor --write
 ```
 
-#### GitHub Integration
+### GitHub Integration
 
-This requires the `GITHUB_TOKEN` environment variable to be set. If
-that isn't set and `gh` is available, we'll use the token from `gh`.
+Requires the `GITHUB_TOKEN` environment variable. If not set and `gh`
+is available, the token from `gh auth token` is used.
 
 **Check if a PR author is vouched:**
 
 ```bash
-# Check PR author status
+# Check PR author status (dry run)
 vouch gh-check-pr 123 --repo owner/repo
 
 # Auto-close unvouched PRs (dry run)
@@ -142,7 +136,7 @@ vouch gh-check-pr 123 --repo owner/repo --auto-close --dry-run=false
 vouch gh-check-pr 123 --repo owner/repo --require-vouch=false --auto-close
 ```
 
-Outputs status: "skipped" (bot), "vouched", "allowed", or "closed".
+Outputs status: `skipped` (bot/collaborator), `vouched`, `allowed`, or `closed`.
 
 **Manage contributor status via issue comments:**
 
@@ -154,11 +148,25 @@ vouch gh-manage-by-issue 123 456789 --repo owner/repo
 vouch gh-manage-by-issue 123 456789 --repo owner/repo --dry-run=false
 ```
 
-Responds to comments:
+Responds to comments from collaborators with write access:
 
-- `lgtm` - vouches for the issue author
-- `denounce` - denounces the issue author
-- `denounce username` - denounces a specific user
-- `denounce username reason` - denounces with a reason
+- `lgtm` — vouches for the issue author
+- `denounce` — denounces the issue author
+- `denounce username` — denounces a specific user
+- `denounce username reason` — denounces with a reason
 
-Only collaborators with write access can vouch or denounce.
+Outputs status: `vouched`, `denounced`, or `unchanged`.
+
+## Library Usage
+
+The module also exports a `lib` submodule for scripting:
+
+```nu
+use vouch/lib.nu *
+
+let records = open VOUCHED.td
+$records | check-user "mitchellh" --default-platform github  # "vouched", "denounced", or "unknown"
+$records | add-user "newuser"                                # returns updated table
+$records | denounce-user "badactor" "reason"                 # returns updated table
+$records | remove-user "olduser"                             # returns updated table
+```
