@@ -43,7 +43,7 @@ runs:
       run: |
         use "${{ github.action_path }}/../../vouch" *
 
-        let output = (gh-check-pr
+        let status = (gh-check-pr
           ${{ inputs.pr-number }}
           --repo "${{ inputs.repo || github.repository }}"
           --vouched-file "${{ inputs.vouched-file }}"
@@ -51,7 +51,4 @@ runs:
           --auto-close=${{ inputs.auto-close }}
           --dry-run=${{ inputs.dry-run }}
         )
-        print $output
-
-        let status = $output | lines | last
         $"status=($status)" | save --append $env.GITHUB_OUTPUT

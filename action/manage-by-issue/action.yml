@@ -57,7 +57,7 @@ runs:
         let vouch_kw = "${{ inputs.vouch-keyword }}" | split row "," | each { str trim } | where { $in | is-not-empty }
         let denounce_kw = "${{ inputs.denounce-keyword }}" | split row "," | each { str trim } | where { $in | is-not-empty }
 
-        let output = (gh-manage-by-issue
+        let status = (gh-manage-by-issue
           ${{ inputs.issue-id }}
           ${{ inputs.comment-id }}
           --repo "${{ inputs.repo || github.repository }}"
@@ -68,9 +68,6 @@ runs:
           --allow-denounce=${{ inputs.allow-denounce }}
           --dry-run=${{ inputs.dry-run }}
         )
-        print $output
-
-        let status = $output | lines | last
         $"status=($status)" | save --append $env.GITHUB_OUTPUT
 
     - if: inputs.dry-run == 'false'

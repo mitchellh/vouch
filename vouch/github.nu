@@ -50,8 +50,7 @@ export def gh-check-pr [
 
   if ($pr_author | str ends-with "[bot]") {
     print $"($pr_author) is a bot, skipping"
-    print "skipped"
-    return
+    return "skipped"
   }
 
   let permission = try {
@@ -62,8 +61,7 @@ export def gh-check-pr [
 
   if $permission in ["admin", "write"] {
     print $"($pr_author) is a collaborator with ($permission) access"
-    print "vouched"
-    return
+    return "vouched"
   }
 
   let records = try {
@@ -76,16 +74,14 @@ export def gh-check-pr [
 
   if $status == "vouched" {
     print $"($pr_author) is in the vouched contributors list"
-    print "vouched"
-    return
+    return "vouched"
   }
 
   if $status == "denounced" {
     print $"($pr_author) is denounced"
 
     if not $auto_close {
-      print "closed"
-      return
+      return "closed"
     }
 
     print "Closing PR"
@@ -94,8 +90,7 @@ export def gh-check-pr [
 
     if $dry_run {
       print "(dry-run) Would post comment and close PR"
-      print "closed"
-      return
+      return "closed"
     }
 
     api "post" $"/repos/($owner)/($repo_name)/issues/($pr_number)/comments" {
@@ -106,21 +101,18 @@ export def gh-check-pr [
       state: "closed"
     }
 
-    print "closed"
-    return
+    return "closed"
   }
 
   print $"($pr_author) is not vouched"
 
   if not $require_vouch {
     print $"($pr_author) is allowed \(vouch not required\)"
-    print "allowed"
-    return
+    return "allowed"
   }
 
   if not $auto_close {
-    print "closed"
-    return
+    return "closed"
   }
 
   print "Closing PR"
@@ -138,8 +130,7 @@ This PR will be closed automatically. See https://github.com/($owner)/($repo_nam
 
   if $dry_run {
     print "(dry-run) Would post comment and close PR"
-    print "closed"
-    return
+    return "closed"
   }
 
   api "post" $"/repos/($owner)/($repo_name)/issues/($pr_number)/comments" {
@@ -150,7 +141,7 @@ This PR will be closed automatically. See https://github.com/($owner)/($repo_nam
     state: "closed"
   }
 
-  print "closed"
+  return "closed"
 }
 
 # Manage contributor status via issue comments.
@@ -233,22 +224,19 @@ export def gh-manage-by-issue [
 
   if not $is_lgtm and not $is_denounce {
     print "Comment does not match any enabled action"
-    print "unchanged"
-    return
+    return "unchanged"
   }
 
   let permission = try {
     api "get" $"/repos/($owner)/($repo_name)/collaborators/($commenter)/permission" | get permission
   } catch {
     print $"($commenter) does not have collaborator access"
-    print "unchanged"
-    return
+    return "unchanged"
   }
 
   if not ($permission in ["admin", "write"]) {
     print $"($commenter) does not have write access"
-    print "unchanged"
-    return
+    return "unchanged"
   }
 
   if not ($file | path exists) {
@@ -270,22 +258,19 @@ export def gh-manage-by-issue [
         print "(dry-run) Would post 'already vouched' comment"
       }
 
-      print "unchanged"
-      return
+      return "unchanged"
     }
 
     if $dry_run {
       print $"(dry-run) Would add ($issue_author) to ($file)"
-      print "vouched"
-      return
+      return "vouched"
     }
 
     let new_records = $records | add-user $issue_author --default-platform github
     $new_records | to td | save -f $file
 
     print $"Added ($issue_author) to vouched contributors"
-    print "vouched"
-    return
+    return "vouched"
   }
 
   if $is_denounce {
@@ -300,23 +285,20 @@ export def gh-manage-by-issue [
     let status = $records | check-user $target_user --default-platform github
     if $status == "denounced" {
       print $"($target_user) is already denounced"
-      print "unchanged"
-      return
+      return "unchanged"
     }
 
     if $dry_run {
       let entry = if ($reason | is-empty) { $"-($target_user)" } else { $"-($target_user) ($reason)" }
       print $"(dry-run) Would add ($entry) to ($file)"
-      print "denounced"
-      return
+      return "denounced"
     }
 
     let new_records = $records | denounce-user $target_user $reason --default-platform github
     $new_records | to td | save -f $file
 
     print $"Denounced ($target_user)"
-    print "denounced"
-    return
+    return "denounced"
   }
 }
 
