@@ -107,7 +107,7 @@ export def gh-check-pr [
   print $"($pr_author) is not vouched"
 
   if not $require_vouch {
-    print $"($pr_author) is allowed \(vouch not required\)"
+    print $"($pr_author) is allowed (char lparen)vouch not required(char rparen)"
     return "allowed"
   }
 
@@ -433,20 +433,14 @@ export def gh-manage-by-discussion [
   let owner = ($repo | split row "/" | first)
   let repo_name = ($repo | split row "/" | last)
 
-  let query = $'{
-    repository\(owner: "($owner)", name: "($repo_name)"\) {
-      discussion\(number: ($discussion_number)\) {
-        author { login }
-      }
-    }
-    node\(id: "($comment_node_id)"\) {
-      ... on DiscussionComment {
-        body
-        author { login }
-      }
-    }
-  }'
-  let result = graphql $query
+  let gql_dir = (path self | path dirname | path join "gql")
+  let query = open -r ([$gql_dir "gh-discussion-comment.gql"] | path join)
+  let result = graphql $query --variables {
+    owner: $owner,
+    repo_name: $repo_name,
+    discussion_number: $discussion_number,
+    comment_node_id: $comment_node_id,
+  }
   let discussion_author = $result.data.repository.discussion.author.login
   let commenter = $result.data.node.author.login
   let body = ($result.data.node.body | default "" | str trim)
@@ -614,7 +608,12 @@ def react-graphql [node_id: string, reaction: string] {
     _ => ($reaction | str upcase),
   }
 
-  graphql $'mutation { addReaction\(input: {subjectId: "($node_id)", content: ($content)}\) { reaction { content } } }'
+  let gql_dir = (path self | path dirname | path join "gql")
+  let query = open -r ([$gql_dir "gh-add-reaction.gql"] | path join)
+  graphql $query --variables {
+    subject_id: $node_id,
+    content: $content,
+  }
 }
 
 # Make a GitHub API request with proper headers
@@ -640,17 +639,22 @@ def api [
 
 # Make a GitHub GraphQL API request.
 def graphql [
-  query: string  # GraphQL query or mutation string
+  query: string          # GraphQL query or mutation string
+  --variables: record    # Optional GraphQL variables
 ] {
   let url = "https://api.github.com/graphql"
   let headers = [
     Authorization $"Bearer (get-token)"
     Accept "application/vnd.github+json"
   ]
-  let payload = { query: $query } | to json
+  let payload = if ($variables | is-empty) {
+    { query: $query }
+  } else {
+    { query: $query, variables: $variables }
+  } | to json
 
   let response = http post $url --headers $headers --content-type application/json $payload
-  if ($response | get -i errors | default null) != null {
+  if ($response | get -o errors | default null) != null {
     error make { msg: ($response.errors | to json) }
   }
   $response

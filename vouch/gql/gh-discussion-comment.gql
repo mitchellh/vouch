@@ -1,0 +1,18 @@
+query discussionComment(
+  $owner: String!
+  $repo_name: String!
+  $discussion_number: Int!
+  $comment_node_id: ID!
+) {
+  repository(owner: $owner, name: $repo_name) {
+    discussion(number: $discussion_number) {
+      author { login }
+    }
+  }
+  node(id: $comment_node_id) {
+    ... on DiscussionComment {
+      body
+      author { login }
+    }
+  }
+}
