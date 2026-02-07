@@ -53,16 +53,17 @@ export def gh-check-pr [
     return "skipped"
   }
 
-  let permission = try {
-    api "get" $"/repos/($owner)/($repo_name)/collaborators/($pr_author)/permission" | get permission
-  } catch {
-    null
-  }
-
-  if $permission in ["admin", "write"] {
-    print $"($pr_author) is a collaborator with ($permission) access"
-    return "vouched"
-  }
+  # TODO: temporarily disabled for testing
+  # let permission = try {
+  #   api "get" $"/repos/($owner)/($repo_name)/collaborators/($pr_author)/permission" | get permission
+  # } catch {
+  #   null
+  # }
+  #
+  # if $permission in ["admin", "write"] {
+  #   print $"($pr_author) is a collaborator with ($permission) access"
+  #   return "vouched"
+  # }
 
   let records = try {
     let file_data = api "get" $"/repos/($owner)/($repo_name)/contents/($vouched_file)?ref=($default_branch)"
