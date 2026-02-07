@@ -144,9 +144,13 @@ vouch gh-manage-by-issue 123 456789 --repo owner/repo --dry-run=false
 Responds to comments from collaborators with write access:
 
 - `vouch` — vouches for the issue author
+- `vouch @user` — vouches for a specific user
+- `vouch <reason>` — vouches for the issue author with a reason
+- `vouch @user <reason>` — vouches for a specific user with a reason
 - `denounce` — denounces the issue author
-- `denounce username` — denounces a specific user
-- `denounce username reason` — denounces with a reason
+- `denounce @user` — denounces a specific user
+- `denounce <reason>` — denounces the issue author with a reason
+- `denounce @user <reason>` — denounces a specific user with a reason
 
 Keywords are customizable via `--vouch-keyword` and `--denounce-keyword`.
 

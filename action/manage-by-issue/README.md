@@ -61,9 +61,13 @@ jobs:
 Comments from collaborators with write access are matched:
 
 - **`vouch`** — vouches for the issue author (customizable via `vouch-keyword`)
+- **`vouch @user`** — vouches for a specific user
+- **`vouch <reason>`** — vouches for the issue author with a reason
+- **`vouch @user <reason>`** — vouches for a specific user with a reason
 - **`denounce`** — denounces the issue author (customizable via `denounce-keyword`)
-- **`denounce username`** — denounces a specific user
-- **`denounce username reason`** — denounces with a reason
+- **`denounce @user`** — denounces a specific user
+- **`denounce <reason>`** — denounces the issue author with a reason
+- **`denounce @user <reason>`** — denounces a specific user with a reason
 
 ## Commit Behavior
 

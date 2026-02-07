@@ -150,10 +150,17 @@ This PR will be closed automatically. See https://github.com/($owner)/($repo_nam
 # denounce keyword (default: "denounce"), verifies the commenter has write
 # access, and updates the vouched list accordingly.
 #
+# For vouch, the comment can be:
+#   - "vouch" - vouches the issue author
+#   - "vouch @user" - vouches the specified user
+#   - "vouch <reason>" - vouches the issue author with a reason
+#   - "vouch @user <reason>" - vouches the specified user with a reason
+#
 # For denounce, the comment can be:
 #   - "denounce" - denounces the issue author
-#   - "denounce username" - denounces the specified user
-#   - "denounce username reason" - denounces with a reason
+#   - "denounce @user" - denounces the specified user
+#   - "denounce <reason>" - denounces the issue author with a reason
+#   - "denounce @user <reason>" - denounces the specified user with a reason
 #
 # Use --vouch-keyword and --denounce-keyword to customize the trigger words.
 # Multiple keywords can be specified as a list.
@@ -210,11 +217,16 @@ export def gh-manage-by-issue [
   let denounce_keywords = if ($denounce_keyword | is-empty) { ["denounce"] } else { $denounce_keyword }
 
   let vouch_joined = ($vouch_keywords | str join '|')
-  let vouch_pattern = '(?i)^\s*(' ++ $vouch_joined ++ ')\b'
-  let is_lgtm = $allow_vouch and ($comment_body | parse -r $vouch_pattern | is-not-empty)
+  let vouch_pattern = '(?i)^\s*(' ++ $vouch_joined ++ ')(?:\s+@(\S+))?(?:\s+(.+))?$'
+  let vouch_match = if $allow_vouch {
+    $comment_body | parse -r $vouch_pattern
+  } else {
+    []
+  }
+  let is_lgtm = ($vouch_match | is-not-empty)
 
   let denounce_joined = ($denounce_keywords | str join '|')
-  let denounce_pattern = '(?i)^\s*(' ++ $denounce_joined ++ ')(?:\s+(\S+))?(?:\s+(.+))?$'
+  let denounce_pattern = '(?i)^\s*(' ++ $denounce_joined ++ ')(?:\s+@(\S+))?(?:\s+(.+))?$'
   let denounce_match = if $allow_denounce {
     $comment_body | parse -r $denounce_pattern
   } else {
@@ -246,13 +258,21 @@ export def gh-manage-by-issue [
   let records = open-file $file
 
   if $is_lgtm {
-    let status = $records | check-user $issue_author --default-platform github
+    let match = $vouch_match | first
+    let target_user = if ($match.capture1? | default "" | is-empty) {
+      $issue_author
+    } else {
+      $match.capture1
+    }
+    let reason = $match.capture2? | default ""
+
+    let status = $records | check-user $target_user --default-platform github
     if $status == "vouched" {
-      print $"($issue_author) is already vouched"
+      print $"($target_user) is already vouched"
 
       if not $dry_run {
         api "post" $"/repos/($owner)/($repo_name)/issues/($issue_id)/comments" {
-          body: $"@($issue_author) is already in the vouched contributors list."
+          body: $"@($target_user) is already in the vouched contributors list."
         }
       } else {
         print "(dry-run) Would post 'already vouched' comment"
@@ -262,17 +282,17 @@ export def gh-manage-by-issue [
     }
 
     if $dry_run {
-      print $"(dry-run) Would add ($issue_author) to ($file)"
+      print $"(dry-run) Would add ($target_user) to ($file)"
       return "vouched"
     }
 
-    let new_records = $records | add-user $issue_author --default-platform github
+    let new_records = $records | add-user $target_user --default-platform github --details $reason
     $new_records | to td | save -f $file
 
     # React to the comment with a thumbs up to indicate success, ignoring errors.
     try { react $owner $repo_name $comment_id "+1" }
 
-    print $"Added ($issue_author) to vouched contributors"
+    print $"Added ($target_user) to vouched contributors"
     return "vouched"
   }
 

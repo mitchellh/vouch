@@ -9,15 +9,17 @@ use file.nu [parse-handle]
 export def add-user [
   username: string,            # Username to add (supports platform:user format)
   --default-platform: string = "", # Assumed platform for entries without explicit platform
+  --details: string = "",      # Optional details/reason for vouching
 ]: table -> table {
   let handle = parse-handle $username
+  let d = if ($details | is-empty) { null } else { $details }
   $in | 
     remove-user $username --default-platform $default_platform |
     append ({
       type: "vouch"
       platform: $handle.platform
       username: $handle.username
-      details: null
+      details: $d
     }) | 
     sort-table
 }
