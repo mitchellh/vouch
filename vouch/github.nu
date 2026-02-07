@@ -433,7 +433,7 @@ export def gh-manage-by-discussion [
   let owner = ($repo | split row "/" | first)
   let repo_name = ($repo | split row "/" | last)
 
-  let gql_dir = (path self | path dirname | path join "gql")
+  const gql_dir = (path self | path dirname | path join "gql")
   let query = open -r ([$gql_dir "gh-discussion-comment.gql"] | path join)
   let result = graphql $query --variables {
     owner: $owner,
@@ -608,7 +608,7 @@ def react-graphql [node_id: string, reaction: string] {
     _ => ($reaction | str upcase),
   }
 
-  let gql_dir = (path self | path dirname | path join "gql")
+  const gql_dir = (path self | path dirname | path join "gql")
   let query = open -r ([$gql_dir "gh-add-reaction.gql"] | path join)
   graphql $query --variables {
     subject_id: $node_id,
