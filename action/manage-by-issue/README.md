@@ -20,6 +20,7 @@ concurrency:
 permissions:
   contents: write
   issues: write
+  pull-requests: read
 
 jobs:
   manage:
