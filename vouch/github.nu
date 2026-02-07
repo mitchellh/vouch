@@ -269,6 +269,9 @@ export def gh-manage-by-issue [
     let new_records = $records | add-user $issue_author --default-platform github
     $new_records | to td | save -f $file
 
+    # React to the comment with a thumbs up to indicate success, ignoring errors.
+    try { react $owner $repo_name $comment_id "+1" }
+
     print $"Added ($issue_author) to vouched contributors"
     return "vouched"
   }
@@ -297,8 +300,18 @@ export def gh-manage-by-issue [
     let new_records = $records | denounce-user $target_user $reason --default-platform github
     $new_records | to td | save -f $file
 
+    # React to the comment with a thumbs up to indicate success, ignoring errors.
+    try { react $owner $repo_name $comment_id "+1" }
+
     print $"Denounced ($target_user)"
     return "denounced"
+  }
+}
+
+# Add a reaction emoji to a GitHub issue comment using the Reactions API.
+def react [owner: string, repo: string, comment_id: int, reaction: string] {
+  api "post" $"/repos/($owner)/($repo)/issues/comments/($comment_id)/reactions" {
+    content: $reaction
   }
 }
 
