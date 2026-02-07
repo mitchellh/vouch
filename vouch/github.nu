@@ -120,12 +120,8 @@ export def gh-check-pr [
 
   let message = $"Hi @($pr_author), thanks for your interest in contributing!
 
-We ask new contributors to open an issue first before submitting a PR. This helps us discuss the approach and avoid wasted effort.
-
-**Next steps:**
-1. Open an issue describing what you want to change and why \(keep it concise, write in your human voice, AI slop will be closed\)
-2. Once a maintainer vouches for you with `lgtm`, you'll be added to the vouched contributors list
-3. Then you can submit your PR
+  This project requires that pull request authors are vouched, and
+  you are not in the list of vouched users. 
 
 This PR will be closed automatically. See https://github.com/($owner)/($repo_name)/blob/($default_branch)/CONTRIBUTING.md for more details."
 
