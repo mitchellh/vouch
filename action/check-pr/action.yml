@@ -1,0 +1,57 @@
+name: Check PR
+description: Check if a PR author is a vouched contributor, optionally closing unvouched PRs.
+
+inputs:
+  pr-number:
+    description: GitHub PR number.
+    required: true
+  auto-close:
+    description: Automatically close PRs from unvouched or denounced users.
+    required: false
+    default: "false"
+  dry-run:
+    description: Print what would happen without making changes.
+    required: false
+    default: "false"
+  repo:
+    description: Repository in "owner/repo" format (default: current repository).
+    required: false
+    default: ""
+  require-vouch:
+    description: Require users to be vouched (false = only block denounced).
+    required: false
+    default: "true"
+  vouched-file:
+    description: Path to the vouched contributors file in the repo.
+    required: false
+    default: ".github/VOUCHED.td"
+
+outputs:
+  status:
+    description: "Result status: skipped, vouched, allowed, or closed."
+    value: ${{ steps.run.outputs.status }}
+
+runs:
+  using: composite
+  steps:
+    - uses: hustcer/setup-nu@v3
+      with:
+        version: "*"
+
+    - id: run
+      shell: nu {0}
+      run: |
+        use $"($env.GITHUB_ACTION_PATH)/../../vouch" *
+
+        let output = (gh-check-pr
+          ${{ inputs.pr-number }}
+          --repo "${{ inputs.repo || github.repository }}"
+          --vouched-file "${{ inputs.vouched-file }}"
+          --require-vouch=${{ inputs.require-vouch }}
+          --auto-close=${{ inputs.auto-close }}
+          --dry-run=${{ inputs.dry-run }}
+        )
+        print $output
+
+        let status = $output | lines | last
+        $"status=($status)" | save --append $env.GITHUB_OUTPUT
