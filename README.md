@@ -14,7 +14,7 @@ that can be trivially parsed using standard POSIX tools and any programming
 language without external libraries.
 
 **Vouch lists can also form a web of trust.** You can configure Vouch to
-read other project's lists of vouched or denounced users. This way,
+read other projects' lists of vouched or denounced users. This way,
 projects with shared values can share their trust decisions with each other
 and create a larger, more comprehensive web of trust across the ecosystem.
 Users already proven to be trustworthy in one project can automatically
