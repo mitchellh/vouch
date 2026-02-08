@@ -9,5 +9,6 @@
 #   - Optional details after a space following the handle.
 alexhraber
 ditherdude
+doprz
 faukah
 rickhanlonii
