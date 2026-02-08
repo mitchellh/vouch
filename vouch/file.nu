@@ -72,6 +72,22 @@ export def init-file [
 " | save $path
 }
 
+# Open all .td files in a directory and return a flat list of records.
+#
+# Files are loaded in filesystem sort order. Returns an empty list if the
+# directory does not exist.
+export def open-dir [
+  dir: path  # Path to directory containing .td files
+] {
+  if not ($dir | path exists) {
+    return []
+  }
+
+  glob ($dir | path join "*.td") | sort | each { |f|
+    open --raw $f | from td
+  } | flatten
+}
+
 # Find the default VOUCHED file by checking common locations.
 #
 # Checks for VOUCHED.td in the current directory first, then .github/VOUCHED.td.

@@ -135,6 +135,44 @@ export def "test cli remove removes denounced with --write" [] {
   }
 }
 
+# --- check --vouched-dir ---
+
+export def "test cli check vouched-dir falls through to inherited" [] {
+  let dir = mktemp -d
+  let file = $dir | path join "VOUCHED.td"
+  let inherited_dir = $dir | path join "inherited"
+  mkdir $inherited_dir
+  "# Local\nalice" | save $file
+  "bob" | save ($inherited_dir | path join "000-other.td")
+  try {
+    let result = do { nu -c $'use vouch *; check bob --vouched-file ($file) --vouched-dir ($inherited_dir)' } | complete
+    assert equal $result.exit_code 0
+    assert ($result.stdout | str contains "vouched")
+  } catch { |e|
+    rm -rf $dir
+    error make { msg: $e.msg }
+  }
+  rm -rf $dir
+}
+
+export def "test cli check local overrides inherited" [] {
+  let dir = mktemp -d
+  let file = $dir | path join "VOUCHED.td"
+  let inherited_dir = $dir | path join "inherited"
+  mkdir $inherited_dir
+  "-bob" | save $file
+  "bob" | save ($inherited_dir | path join "000-other.td")
+  try {
+    let result = do { nu -c $'use vouch *; check bob --vouched-file ($file) --vouched-dir ($inherited_dir)' } | complete
+    assert equal $result.exit_code 1
+    assert ($result.stdout | str contains "denounced")
+  } catch { |e|
+    rm -rf $dir
+    error make { msg: $e.msg }
+  }
+  rm -rf $dir
+}
+
 # Ensure commands work when --vouched-file isn't explicitly provided.
 export def "test cli defaults vouched file path" [] {
   let dir = mktemp -d

@@ -1,0 +1,44 @@
+name: Sync Vouch
+description: "Download remote vouch files via HTTP for web-of-trust inheritance."
+
+inputs:
+  sources:
+    description: "Newline-separated list of URLs to .td files."
+    required: true
+  vouched-dir:
+    description: "Directory to save downloaded files."
+    required: false
+    default: ".vouch.d"
+
+outputs:
+  vouched-dir:
+    description: "Path to the directory containing downloaded files."
+    value: ${{ steps.sync.outputs.vouched-dir }}
+
+runs:
+  using: composite
+  steps:
+    - id: sync
+      shell: bash
+      run: |
+        dir="${{ inputs.vouched-dir }}"
+        mkdir -p "$dir"
+        index=0
+        while IFS= read -r url; do
+          url="$(echo "$url" | xargs)"
+          if [ -z "$url" ]; then
+            continue
+          fi
+          # Derive a filename from the URL basename
+          basename="$(echo "$url" | sed 's|.*/||')"
+          padded="$(printf '%03d' "$index")"
+          dest="$dir/${padded}-${basename}"
+          if curl -fsSL "$url" -o "$dest"; then
+            echo "Downloaded $url -> $dest"
+          else
+            echo "::warning::Failed to download $url"
+            rm -f "$dest"
+          fi
+          index=$((index + 1))
+        done <<< "${{ inputs.sources }}"
+        echo "vouched-dir=$dir" >> "$GITHUB_OUTPUT"

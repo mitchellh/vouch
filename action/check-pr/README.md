@@ -37,6 +37,7 @@ jobs:
 | `dry-run`       | No       | `"false"`              | Print what would happen without making changes             |
 | `repo`          | No       | Current repository     | Repository in `owner/repo` format                          |
 | `require-vouch` | No       | `"true"`               | Require users to be vouched (false = only block denounced) |
+| `vouched-dir`   | No       | `""`                   | Directory of inherited .td files for web-of-trust          |
 | `vouched-file`  | No       | `".github/VOUCHED.td"` | Path to the vouched contributors file in the repo          |
 
 ## Outputs

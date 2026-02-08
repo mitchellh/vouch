@@ -36,6 +36,7 @@ export use file.nu [
   default-path
   "from td"
   init-file
+  open-dir
   "to td"
 ]
 

@@ -73,6 +73,7 @@ See the linked README in the action directory for full usage details.
 | [check-pr](action/check-pr/README.md)                         | `pull_request_target` | Check if a PR author is vouched on open or reopen. Bots and collaborators with write access are automatically allowed. Optionally auto-close PRs from unvouched or denounced users. |
 | [manage-by-discussion](action/manage-by-discussion/README.md) | `discussion_comment`  | Let collaborators vouch, denounce, or unvouch users via discussion comments. Updates the vouched file and commits the change.                                                       |
 | [manage-by-issue](action/manage-by-issue/README.md)           | `issue_comment`       | Let collaborators vouch or denounce users via issue comments. Updates the vouched file and commits the change.                                                                      |
+| [sync-vouch](action/sync-vouch/README.md)                     | (utility)             | Download remote `.td` vouch files via HTTP for web-of-trust inheritance. Use with other actions' `vouched-dir` input.                                                               |
 
 ### CLI
 
@@ -98,6 +99,9 @@ help gh-manage-by-issue
 
 ```bash
 vouch check <username>
+
+# Check against local file + inherited trust directory
+vouch check <username> --vouched-dir .vouch.d
 ```
 
 Exit codes: 0 = vouched, 1 = denounced, 2 = unknown.
@@ -172,6 +176,42 @@ Responds to comments from collaborators with write access:
 Keywords are customizable via `--vouch-keyword` and `--denounce-keyword`.
 
 Outputs status: `vouched`, `denounced`, or `unchanged`.
+
+### Web of Trust
+
+Projects can inherit trust decisions from other projects by loading
+remote vouch files. Use the `sync-vouch` action to download remote
+`.td` files, then pass the directory to other actions via `vouched-dir`.
+Local decisions always take priority over inherited ones.
+
+```yaml
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: mitchellh/vouch/action/sync-vouch@main
+        id: sync
+        with:
+          sources: |
+            https://raw.githubusercontent.com/org/project-a/main/.github/VOUCHED.td
+            https://raw.githubusercontent.com/org/project-b/main/.github/VOUCHED.td
+
+      - uses: mitchellh/vouch/action/check-pr@main
+        with:
+          pr-number: ${{ github.event.pull_request.number }}
+          vouched-dir: ${{ steps.sync.outputs.vouched-dir }}
+          auto-close: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
 
 ### Library
 

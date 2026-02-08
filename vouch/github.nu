@@ -1,6 +1,6 @@
 # GitHub API utilities and CLI commands for Nu scripts
 
-use file.nu [default-path, "from td", init-file, open-file, "to td"]
+use file.nu [default-path, "from td", init-file, open-dir, open-file, "to td"]
 use lib.nu [add-user, check-user, denounce-user, parse-comment, remove-user]
 
 # Check if a PR author is a vouched contributor.
@@ -33,6 +33,7 @@ export def gh-check-pr [
   pr_number: int,              # GitHub PR number
   --repo (-R): string,         # Repository in "owner/repo" format (required)
   --vouched-file: string = ".github/VOUCHED.td", # Path to vouched contributors file in the repo
+  --vouched-dir: string = "",  # Directory of inherited .td files (loaded after local file)
   --require-vouch = true,      # Require users to be vouched (false = only block denounced)
   --auto-close = false,        # Automatically close PRs from unvouched/denounced users
   --dry-run = true,            # Print what would happen without making changes
@@ -64,12 +65,14 @@ export def gh-check-pr [
     return "vouched"
   }
 
-  let records = try {
+  let local_records = try {
     let file_data = api "get" $"/repos/($owner)/($repo_name)/contents/($vouched_file)?ref=($default_branch)"
     $file_data.content | str replace -a "\n" "" | decode base64 | decode utf-8 | from td
   } catch {
     []
   }
+  let inherited_records = if ($vouched_dir | is-empty) { [] } else { open-dir $vouched_dir }
+  let records = $local_records | append $inherited_records
   let status = $records | check-user $pr_author --default-platform github
 
   if $status == "vouched" {
@@ -183,6 +186,7 @@ export def gh-manage-by-issue [
   comment_id: int,         # GitHub comment ID
   --repo (-R): string,     # Repository in "owner/repo" format (required)
   --vouched-file: string = "",  # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
+  --vouched-dir: string = "",  # Directory of inherited .td files (loaded after local file)
   --vouch-keyword: list<string> = [], # Keywords that trigger vouching (default: ["vouch"])
   --denounce-keyword: list<string> = [], # Keywords that trigger denouncing (default: ["denounce"])
   --unvouch-keyword: list<string> = [], # Keywords that trigger unvouching (default: ["unvouch"])
@@ -243,11 +247,13 @@ export def gh-manage-by-issue [
   }
 
   let records = open-file $file
+  let inherited_records = if ($vouched_dir | is-empty) { [] } else { open-dir $vouched_dir }
+  let all_records = $records | append $inherited_records
   let target_user = $parsed.user | default $issue_author
   let reason = $parsed.reason
 
   if $parsed.action == "vouch" {
-    let status = $records | check-user $target_user --default-platform github
+    let status = $all_records | check-user $target_user --default-platform github
     if $status == "vouched" {
       print $"($target_user) is already vouched"
       return "unchanged"
@@ -269,7 +275,7 @@ export def gh-manage-by-issue [
   }
 
   if $parsed.action == "denounce" {
-    let status = $records | check-user $target_user --default-platform github
+    let status = $all_records | check-user $target_user --default-platform github
     if $status == "denounced" {
       print $"($target_user) is already denounced"
       return "unchanged"
@@ -292,7 +298,7 @@ export def gh-manage-by-issue [
   }
 
   if $parsed.action == "unvouch" {
-    let status = $records | check-user $target_user --default-platform github
+    let status = $all_records | check-user $target_user --default-platform github
     if $status == "unknown" {
       print $"($target_user) is not in the vouched contributors list"
       return "unchanged"
@@ -361,6 +367,7 @@ export def gh-manage-by-discussion [
   comment_node_id: string, # GraphQL node ID of the comment (e.g. DC_kwDO...)
   --repo (-R): string,     # Repository in "owner/repo" format (required)
   --vouched-file: string = "",  # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
+  --vouched-dir: string = "",  # Directory of inherited .td files (loaded after local file)
   --vouch-keyword: list<string> = [], # Keywords that trigger vouching (default: ["vouch"])
   --denounce-keyword: list<string> = [], # Keywords that trigger denouncing (default: ["denounce"])
   --unvouch-keyword: list<string> = [], # Keywords that trigger unvouching (default: ["unvouch"])
@@ -427,11 +434,13 @@ export def gh-manage-by-discussion [
   }
 
   let records = open-file $file
+  let inherited_records = if ($vouched_dir | is-empty) { [] } else { open-dir $vouched_dir }
+  let all_records = $records | append $inherited_records
   let target_user = $parsed.user | default $discussion_author
   let reason = $parsed.reason
 
   if $parsed.action == "vouch" {
-    let status = $records | check-user $target_user --default-platform github
+    let status = $all_records | check-user $target_user --default-platform github
     if $status == "vouched" {
       print $"($target_user) is already vouched"
       return "unchanged"
@@ -452,7 +461,7 @@ export def gh-manage-by-discussion [
   }
 
   if $parsed.action == "denounce" {
-    let status = $records | check-user $target_user --default-platform github
+    let status = $all_records | check-user $target_user --default-platform github
     if $status == "denounced" {
       print $"($target_user) is already denounced"
       return "unchanged"
@@ -474,7 +483,7 @@ export def gh-manage-by-discussion [
   }
 
   if $parsed.action == "unvouch" {
-    let status = $records | check-user $target_user --default-platform github
+    let status = $all_records | check-user $target_user --default-platform github
     if $status == "unknown" {
       print $"($target_user) is not in the vouched contributors list"
       return "unchanged"

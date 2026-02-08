@@ -1,6 +1,6 @@
 use std/assert
 
-use ../vouch/file.nu ["from td", init-file, "to td", parse-handle]
+use ../vouch/file.nu ["from td", init-file, open-dir, "to td", parse-handle]
 
 # --- from td ---
 
@@ -150,4 +150,56 @@ export def "test parse-handle normalizes case" [] {
   let result = parse-handle "GitHub:MitchellH"
   assert equal $result.platform "github"
   assert equal $result.username "mitchellh"
+}
+
+# --- open-dir ---
+
+export def "test open-dir loads td files from directory" [] {
+  let dir = mktemp -d
+  try {
+    "alice\nbob" | save ($dir | path join "001-first.td")
+    "charlie" | save ($dir | path join "002-second.td")
+    let result = open-dir $dir
+    let users = $result | where type == "vouch" | get username
+    assert equal $users ["alice", "bob", "charlie"]
+  } catch { |e|
+    rm -rf $dir
+    error make { msg: $e.msg }
+  }
+  rm -rf $dir
+}
+
+export def "test open-dir returns empty for missing directory" [] {
+  let result = open-dir "/tmp/nonexistent-vouch-dir-12345"
+  assert equal ($result | length) 0
+}
+
+export def "test open-dir ignores non-td files" [] {
+  let dir = mktemp -d
+  try {
+    "alice" | save ($dir | path join "first.td")
+    "should-be-ignored" | save ($dir | path join "notes.txt")
+    let result = open-dir $dir
+    let users = $result | where type == "vouch" | get username
+    assert equal $users ["alice"]
+  } catch { |e|
+    rm -rf $dir
+    error make { msg: $e.msg }
+  }
+  rm -rf $dir
+}
+
+export def "test open-dir preserves filesystem sort order" [] {
+  let dir = mktemp -d
+  try {
+    "zebra" | save ($dir | path join "000-first.td")
+    "alpha" | save ($dir | path join "001-second.td")
+    let result = open-dir $dir
+    let users = $result | where type == "vouch" | get username
+    assert equal $users ["zebra", "alpha"]
+  } catch { |e|
+    rm -rf $dir
+    error make { msg: $e.msg }
+  }
+  rm -rf $dir
 }

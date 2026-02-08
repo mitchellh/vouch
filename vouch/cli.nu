@@ -1,6 +1,6 @@
 #!/usr/bin/env nu
 
-use file.nu [default-path, "from td", open-file, "to td"]
+use file.nu [default-path, "from td", open-dir, open-file, "to td"]
 use lib.nu [add-user, check-user, denounce-user, remove-user]
 
 # Add a user to the vouched contributors list.
@@ -64,6 +64,7 @@ export def check [
   username: string,          # Username to check (supports platform:user format)
   --default-platform: string = "", # Assumed platform for entries without explicit platform
   --vouched-file: string = "",    # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
+  --vouched-dir: string = "",    # Directory of inherited .td files (loaded after local file)
 ] {
   let file = if ($vouched_file | is-empty) {
     let default = default-path
@@ -75,7 +76,9 @@ export def check [
     $vouched_file
   }
 
-  let records = open-file $file
+  let local_records = open-file $file
+  let inherited_records = if ($vouched_dir | is-empty) { [] } else { open-dir $vouched_dir }
+  let records = $local_records | append $inherited_records
   let status = $records | check-user $username --default-platform $default_platform
 
   match $status {

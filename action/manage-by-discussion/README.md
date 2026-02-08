@@ -53,6 +53,7 @@ jobs:
 | `repo`              | No       | `""`      | Repository in `owner/repo` format (default: current repository)        |
 | `unvouch-keyword`   | No       | `""`      | Comma-separated keywords that trigger unvouching (default: `unvouch`)  |
 | `vouch-keyword`     | No       | `""`      | Comma-separated keywords that trigger vouching (default: `vouch`)      |
+| `vouched-dir`       | No       | `""`      | Directory of inherited .td files for web-of-trust                      |
 | `vouched-file`      | No       | `""`      | Path to vouched contributors file (empty = auto-detect)                |
 
 ## Outputs

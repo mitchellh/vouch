@@ -21,6 +21,10 @@ inputs:
     description: "Require users to be vouched (false = only block denounced)."
     required: false
     default: "true"
+  vouched-dir:
+    description: "Directory of inherited .td files for web-of-trust."
+    required: false
+    default: ""
   vouched-file:
     description: "Path to the vouched contributors file in the repo."
     required: false
@@ -47,6 +51,7 @@ runs:
           ${{ inputs.pr-number }}
           --repo "${{ inputs.repo || github.repository }}"
           --vouched-file "${{ inputs.vouched-file }}"
+          --vouched-dir "${{ inputs.vouched-dir }}"
           --require-vouch=${{ inputs.require-vouch }}
           --auto-close=${{ inputs.auto-close }}
           --dry-run=${{ inputs.dry-run }}

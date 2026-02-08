@@ -40,6 +40,10 @@ inputs:
     description: "Comma-separated list of keywords that trigger vouching (default: vouch)."
     required: false
     default: ""
+  vouched-dir:
+    description: "Directory of inherited .td files for web-of-trust."
+    required: false
+    default: ""
   vouched-file:
     description: "Path to the vouched contributors file (empty = auto-detect)."
     required: false
@@ -71,6 +75,7 @@ runs:
           "${{ inputs.comment-node-id }}"
           --repo "${{ inputs.repo || github.repository }}"
           --vouched-file "${{ inputs.vouched-file }}"
+          --vouched-dir "${{ inputs.vouched-dir }}"
           --vouch-keyword $vouch_kw
           --denounce-keyword $denounce_kw
           --unvouch-keyword $unvouch_kw

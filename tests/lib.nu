@@ -268,3 +268,37 @@ export def "test parse-comment multiline body parses first line only" [] {
   assert equal $result.user "ditherdude"
   assert equal $result.reason ""
 }
+
+# --- web of trust priority ---
+
+export def "test local vouch overrides inherited denounce" [] {
+  let local = "alice" | from td
+  let inherited = "-alice" | from td
+  let merged = $local | append $inherited
+  let result = $merged | check-user "alice"
+  assert equal $result "vouched"
+}
+
+export def "test local denounce overrides inherited vouch" [] {
+  let local = "-bob" | from td
+  let inherited = "bob" | from td
+  let merged = $local | append $inherited
+  let result = $merged | check-user "bob"
+  assert equal $result "denounced"
+}
+
+export def "test falls through to inherited for unknown local user" [] {
+  let local = "alice" | from td
+  let inherited = "charlie" | from td
+  let merged = $local | append $inherited
+  let result = $merged | check-user "charlie"
+  assert equal $result "vouched"
+}
+
+export def "test unknown across all files returns unknown" [] {
+  let local = "alice" | from td
+  let inherited = "bob" | from td
+  let merged = $local | append $inherited
+  let result = $merged | check-user "nobody"
+  assert equal $result "unknown"
+}
