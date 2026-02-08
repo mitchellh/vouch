@@ -20,7 +20,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: mitchellh/vouch/action/check-pr@main
+      - uses: mitchellh/vouch/action/check-pr@v1
         with:
           pr-number: ${{ github.event.pull_request.number }}
           auto-close: true

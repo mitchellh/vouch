@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: mitchellh/vouch/action/manage-by-issue@main
+      - uses: mitchellh/vouch/action/manage-by-issue@v1
         with:
           repo: ${{ github.repository }}
           issue-id: ${{ github.event.issue.number }}
