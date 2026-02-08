@@ -141,6 +141,25 @@ export def denounce [
   }
 }
 
+# Print CLI usage.
+#
+# This is primarily useful if you `use vouch *` and want a quick reminder
+# of the available commands.
+export def main [] {
+  print "Usage: vouch <command>"
+  print ""
+  print "Local Commands:"
+  print "  add               Add a user to the vouched contributors list"
+  print "  check             Check a user's vouch status"
+  print "  denounce          Denounce a user by adding them to the vouched file"
+  print "  remove            Remove a user from the vouched contributors list"
+  print ""
+  print "GitHub integration:"
+  print "  gh-check-pr         Check if a PR author is a vouched contributor"
+  print "  gh-manage-by-discussion Manage contributor status via discussion comment"
+  print "  gh-manage-by-issue  Manage contributor status via issue comment"
+}
+
 # Remove a user from the VOUCHED file entirely.
 #
 # This removes any existing entry (vouched or denounced) for the user.
@@ -182,4 +201,12 @@ export def remove [
   } else {
     print -n ($new_records | to td)
   }
+}
+
+# Print CLI usage as a normal (non-special) command.
+#
+# Nushell treats a top-level `main` as special, so it won't be imported by
+# `use vouch *`. Exporting `vouch main` keeps help/call working in-module.
+export def "vouch main" [] {
+  main
 }
