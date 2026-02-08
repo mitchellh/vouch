@@ -7,7 +7,6 @@
   };
 
   outputs = {
-    self,
     nixpkgs,
     flake-utils,
     ...
@@ -22,9 +21,6 @@
             nushell
           ];
         };
-
-        # For compatibility with older versions of the `nix` binary
-        devShell = self.devShells.${system}.default;
       }
     );
 }
