@@ -66,18 +66,19 @@ runs:
         let denounce_kw = "${{ inputs.denounce-keyword }}" | split row "," | each { str trim } | where { $in | is-not-empty }
         let unvouch_kw = "${{ inputs.unvouch-keyword }}" | split row "," | each { str trim } | where { $in | is-not-empty }
 
-        let status = (gh-manage-by-issue
-          ${{ inputs.issue-id }}
-          ${{ inputs.comment-id }}
+        let status = (gh-manage-and-push
+          --type "issue"
+          --id ${{ inputs.issue-id }}
+          --comment-id "${{ inputs.comment-id }}"
           --repo "${{ inputs.repo || github.repository }}"
           --vouched-file "${{ inputs.vouched-file }}"
           --vouch-keyword $vouch_kw
           --denounce-keyword $denounce_kw
           --unvouch-keyword $unvouch_kw
-          --allow-vouch=${{ inputs.allow-vouch }}
-          --allow-denounce=${{ inputs.allow-denounce }}
-          --allow-unvouch=${{ inputs.allow-unvouch }}
-          --dry-run=${{ inputs.dry-run }}
+          --allow-vouch=(${{ inputs.allow-vouch }} | into bool)
+          --allow-denounce=(${{ inputs.allow-denounce }} | into bool)
+          --allow-unvouch=(${{ inputs.allow-unvouch }} | into bool)
+          --dry-run=(${{ inputs.dry-run }} | into bool)
         )
         $"status=($status)" | save --append $env.GITHUB_OUTPUT
 
@@ -108,4 +109,25 @@ runs:
         git add $vouched_file
         let url = $"($env.GITHUB_SERVER_URL)/${{ inputs.repo || github.repository }}/issues/${{ inputs.issue-id }}#issuecomment-${{ inputs.comment-id }}"
         git commit -m $"Update VOUCHED list\n\n($url)"
-        git push
+        
+        let attempts = 0
+        let max_attempts = 5
+        while $attempts < $max_attempts {
+            let push_result = (git push | complete)
+            if $push_result.exit_code == 0 {
+                print "Successfully pushed changes."
+                break
+            } else {
+                print $"Git push failed (attempt ($attempts + 1)/($max_attempts)). Error: ($push_result.stderr)"
+                print "Attempting to rebase and retry..."
+                let pull_result = (git pull --rebase | complete)
+                if $pull_result.exit_code != 0 {
+                    error $"Git pull --rebase failed: ($pull_result.stderr)"
+                }
+            }
+            $attempts = $attempts + 1
+        }
+
+        if $attempts == $max_attempts {
+            error "Failed to push changes after multiple attempts."
+        }
