@@ -1,6 +1,16 @@
-# Vouch
+<h1 align="center">Vouch</h1>
 
-A project trust management system. People must be **vouched for** before
+<p align="center">
+  A community trust management system.
+</p>
+
+<p align="center">
+  <a href="FAQ.md">FAQ</a> · <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
+---
+
+People must be **vouched for** before
 interacting with certain parts of a project (the exact parts are
 configurable to the project to enforce). People can also be explicitly
 **denounced** to block them from interacting with the project.
