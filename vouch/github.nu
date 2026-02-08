@@ -182,10 +182,10 @@ export def gh-manage-by-issue [
   issue_id: int,           # GitHub issue number
   comment_id: int,         # GitHub comment ID
   --repo (-R): string,     # Repository in "owner/repo" format (required)
-  --vouched-file: string,  # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
-  --vouch-keyword: list<string>, # Keywords that trigger vouching (default: ["vouch"])
-  --denounce-keyword: list<string>, # Keywords that trigger denouncing (default: ["denounce"])
-  --unvouch-keyword: list<string>, # Keywords that trigger unvouching (default: ["unvouch"])
+  --vouched-file: string = "",  # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
+  --vouch-keyword: list<string> = [], # Keywords that trigger vouching (default: ["vouch"])
+  --denounce-keyword: list<string> = [], # Keywords that trigger denouncing (default: ["denounce"])
+  --unvouch-keyword: list<string> = [], # Keywords that trigger unvouching (default: ["unvouch"])
   --allow-vouch = true,   # Enable vouch handling
   --allow-denounce = true, # Enable denounce handling
   --allow-unvouch = true,  # Enable unvouch handling
@@ -406,10 +406,10 @@ export def gh-manage-by-discussion [
   discussion_number: int,  # GitHub discussion number
   comment_node_id: string, # GraphQL node ID of the comment (e.g. DC_kwDO...)
   --repo (-R): string,     # Repository in "owner/repo" format (required)
-  --vouched-file: string,  # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
-  --vouch-keyword: list<string>, # Keywords that trigger vouching (default: ["vouch"])
-  --denounce-keyword: list<string>, # Keywords that trigger denouncing (default: ["denounce"])
-  --unvouch-keyword: list<string>, # Keywords that trigger unvouching (default: ["unvouch"])
+  --vouched-file: string = "",  # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
+  --vouch-keyword: list<string> = [], # Keywords that trigger vouching (default: ["vouch"])
+  --denounce-keyword: list<string> = [], # Keywords that trigger denouncing (default: ["denounce"])
+  --unvouch-keyword: list<string> = [], # Keywords that trigger unvouching (default: ["unvouch"])
   --allow-vouch = true,   # Enable vouch handling
   --allow-denounce = true, # Enable denounce handling
   --allow-unvouch = true,  # Enable unvouch handling

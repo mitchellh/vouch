@@ -134,3 +134,22 @@ export def "test cli remove removes denounced with --write" [] {
     assert equal ($entry | length) 0
   }
 }
+
+# Ensure commands work when --vouched-file isn't explicitly provided.
+export def "test cli defaults vouched file path" [] {
+  let dir = mktemp -d
+  let file = $dir | path join "VOUCHED.td"
+  "# Comment
+mitchellh" | save $file
+
+  try {
+    nu -c $'cd ($dir); use vouch *; add newuser --write'
+    let contents = open --raw $file | from td
+    assert equal (($contents | where username == "newuser" | length)) 1
+  } catch { |e|
+    rm -rf $dir
+    error make { msg: $e.msg }
+  }
+
+  rm -rf $dir
+}

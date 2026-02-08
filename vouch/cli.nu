@@ -22,7 +22,7 @@ use lib.nu [add-user, check-user, denounce-user, remove-user]
 export def add [
   username: string,          # Username to vouch for (supports platform:user format)
   --default-platform: string = "", # Assumed platform for entries without explicit platform
-  --vouched-file: string,    # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
+  --vouched-file: string = "",    # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
   --write (-w),              # Write the file in-place (default: output to stdout)
 ] {
   let file = if ($vouched_file | is-empty) {
@@ -63,7 +63,7 @@ export def add [
 export def check [
   username: string,          # Username to check (supports platform:user format)
   --default-platform: string = "", # Assumed platform for entries without explicit platform
-  --vouched-file: string,    # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
+  --vouched-file: string = "",    # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
 ] {
   let file = if ($vouched_file | is-empty) {
     let default = default-path
@@ -117,7 +117,7 @@ export def denounce [
   username: string,          # Username to denounce (supports platform:user format)
   --default-platform: string = "", # Assumed platform for entries without explicit platform
   --reason: string,          # Optional reason for denouncement
-  --vouched-file: string,    # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
+  --vouched-file: string = "",    # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
   --write (-w),              # Write the file in-place (default: output to stdout)
 ] {
   let file = if ($vouched_file | is-empty) {
@@ -160,7 +160,7 @@ export def denounce [
 export def remove [
   username: string,          # Username to remove (supports platform:user format)
   --default-platform: string = "", # Assumed platform for entries without explicit platform
-  --vouched-file: string,    # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
+  --vouched-file: string = "",    # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
   --write (-w),              # Write the file in-place (default: output to stdout)
 ] {
   let file = if ($vouched_file | is-empty) {
