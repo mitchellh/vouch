@@ -44,12 +44,12 @@ export def main [
     }
 
     if $dry_run {
-      print $"(char lparen)dry-run(char rparen) git tag -f ($entry.major) ($target)"
+      print $"(char lparen)dry-run(char rparen) git tag -fa ($entry.major) ($target) -m ($entry.tag)"
       print $"(char lparen)dry-run(char rparen) git push origin ($entry.major) --force"
       continue
     }
 
-    ^git tag -f $entry.major $target
+    ^git tag -fa $entry.major $target -m $entry.tag
     ^git push origin $entry.major --force
     print $"Updated ($entry.major) -> ($entry.tag)"
   }
