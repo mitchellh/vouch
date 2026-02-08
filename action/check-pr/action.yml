@@ -34,7 +34,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: hustcer/setup-nu@v3
+    - uses: hustcer/setup-nu@920172d92eb04671776f3ba69d605d3b09351c30 # v3.22
       with:
         version: "*"
 

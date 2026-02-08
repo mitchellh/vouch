@@ -19,6 +19,7 @@
           packages = with pkgs; [
             nodePackages.prettier
             nushell
+            pinact
           ];
         };
       }
