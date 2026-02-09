@@ -13,6 +13,7 @@ export use cli.nu [
 # The GitHub integration commands.
 export use github.nu [
   gh-check-pr
+  gh-manage-and-push
   gh-manage-by-discussion
   gh-manage-by-issue
 ]
@@ -27,4 +28,3 @@ export use file.nu [
 
 # The API if people want to use this as a Nu library.
 export module lib.nu
-

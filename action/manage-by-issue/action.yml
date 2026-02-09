@@ -66,46 +66,18 @@ runs:
         let denounce_kw = "${{ inputs.denounce-keyword }}" | split row "," | each { str trim } | where { $in | is-not-empty }
         let unvouch_kw = "${{ inputs.unvouch-keyword }}" | split row "," | each { str trim } | where { $in | is-not-empty }
 
-        let status = (gh-manage-by-issue
-          ${{ inputs.issue-id }}
-          ${{ inputs.comment-id }}
+        let status = (gh-manage-and-push
+          --type "issue"
+          --id ${{ inputs.issue-id }}
+          --comment-id ${{ inputs.comment-id }}
           --repo "${{ inputs.repo || github.repository }}"
           --vouched-file "${{ inputs.vouched-file }}"
           --vouch-keyword $vouch_kw
           --denounce-keyword $denounce_kw
           --unvouch-keyword $unvouch_kw
-          --allow-vouch=${{ inputs.allow-vouch }}
-          --allow-denounce=${{ inputs.allow-denounce }}
-          --allow-unvouch=${{ inputs.allow-unvouch }}
-          --dry-run=${{ inputs.dry-run }}
+          --allow-vouch=(${{ inputs.allow-vouch }} | into bool)
+          --allow-denounce=(${{ inputs.allow-denounce }} | into bool)
+          --allow-unvouch=(${{ inputs.allow-unvouch }} | into bool)
+          --dry-run=(${{ inputs.dry-run }} | into bool)
         )
         $"status=($status)" | save --append $env.GITHUB_OUTPUT
-
-    - if: inputs.dry-run == 'false'
-      shell: nu {0}
-      run: |
-        use "${{ github.action_path }}/../../vouch"
-
-        let vouched_file = if ("${{ inputs.vouched-file }}" | is-empty) {
-          vouch default-path
-        } else {
-          "${{ inputs.vouched-file }}"
-        }
-
-        let is_new = (git ls-files $vouched_file | str trim | is-empty)
-        if $is_new {
-          git add $vouched_file
-        }
-
-        let diff = git diff --quiet $vouched_file | complete
-        if $diff.exit_code == 0 and not $is_new {
-          print "No changes to commit"
-          exit 0
-        }
-
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add $vouched_file
-        let url = $"($env.GITHUB_SERVER_URL)/${{ inputs.repo || github.repository }}/issues/${{ inputs.issue-id }}#issuecomment-${{ inputs.comment-id }}"
-        git commit -m $"Update VOUCHED list\n\n($url)"
-        git push

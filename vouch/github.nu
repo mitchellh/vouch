@@ -30,19 +30,25 @@ use lib.nu [add-user, check-user, denounce-user, parse-comment, remove-user]
 #   ./vouch.nu gh-check-pr 123 --require-vouch=false --auto-close
 #
 export def gh-check-pr [
-  pr_number: int,              # GitHub PR number
-  --repo (-R): string,         # Repository in "owner/repo" format (required)
-  --vouched-file: string = ".github/VOUCHED.td", # Path to vouched contributors file in the repo
-  --require-vouch = true,      # Require users to be vouched (false = only block denounced)
-  --auto-close = false,        # Automatically close PRs from unvouched/denounced users
-  --dry-run = true,            # Print what would happen without making changes
+  pr_number: int,                                 # GitHub PR number
+  --repo (-R): string,                            # Repository in "owner/repo" format (optional in Actions; required otherwise)
+  --vouched-file: string = ".github/VOUCHED.td",  # Path to vouched contributors file in the repo
+  --require-vouch = true,                         # Require users to be vouched (false = only block denounced)
+  --auto-close = false,                           # Automatically close PRs from unvouched/denounced users
+  --dry-run = true,                               # Print what would happen without making changes
 ] {
-  if ($repo | is-empty) {
+  let repo_to_use = if ($repo | is-empty) {
+    $env.GITHUB_REPOSITORY? | default ""
+  } else {
+    $repo
+  }
+
+  if ($repo_to_use | is-empty) {
     error make { msg: "--repo is required" }
   }
 
-  let owner = ($repo | split row "/" | first)
-  let repo_name = ($repo | split row "/" | last)
+  let owner = ($repo_to_use | split row "/" | first)
+  let repo_name = ($repo_to_use | split row "/" | last)
 
   let pr_data = api "get" $"/repos/($owner)/($repo_name)/pulls/($pr_number)"
   let pr_author = $pr_data.user.login
@@ -70,6 +76,7 @@ export def gh-check-pr [
   } catch {
     []
   }
+
   let status = $records | check-user $pr_author --default-platform github
 
   if $status == "vouched" {
@@ -93,13 +100,8 @@ export def gh-check-pr [
       return "closed"
     }
 
-    api "post" $"/repos/($owner)/($repo_name)/issues/($pr_number)/comments" {
-      body: $message
-    }
-
-    api "patch" $"/repos/($owner)/($repo_name)/pulls/($pr_number)" {
-      state: "closed"
-    }
+    api "post" $"/repos/($owner)/($repo_name)/issues/($pr_number)/comments" { body: $message }
+    api "patch" $"/repos/($owner)/($repo_name)/pulls/($pr_number)" { state: "closed" }
 
     return "closed"
   }
@@ -119,7 +121,7 @@ export def gh-check-pr [
 
   let message = $"Hi @($pr_author), thanks for your interest in contributing!
 
-  This project requires that pull request authors are vouched, and you are not in the list of vouched users. 
+This project requires that pull request authors are vouched, and you are not in the list of vouched users.
 
 This PR will be closed automatically. See https://github.com/($owner)/($repo_name)/blob/($default_branch)/CONTRIBUTING.md for more details."
 
@@ -128,13 +130,8 @@ This PR will be closed automatically. See https://github.com/($owner)/($repo_nam
     return "closed"
   }
 
-  api "post" $"/repos/($owner)/($repo_name)/issues/($pr_number)/comments" {
-    body: $message
-  }
-
-  api "patch" $"/repos/($owner)/($repo_name)/pulls/($pr_number)" {
-    state: "closed"
-  }
+  api "post" $"/repos/($owner)/($repo_name)/issues/($pr_number)/comments" { body: $message }
+  api "patch" $"/repos/($owner)/($repo_name)/pulls/($pr_number)" { state: "closed" }
 
   return "closed"
 }
@@ -179,35 +176,37 @@ This PR will be closed automatically. See https://github.com/($owner)/($repo_nam
 #   ./vouch.nu gh-manage-by-issue 123 456789 --vouch-keyword [lgtm approve]
 #
 export def gh-manage-by-issue [
-  issue_id: int,           # GitHub issue number
-  comment_id: int,         # GitHub comment ID
-  --repo (-R): string,     # Repository in "owner/repo" format (required)
-  --vouched-file: string = "",  # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
-  --vouch-keyword: list<string> = [], # Keywords that trigger vouching (default: ["vouch"])
-  --denounce-keyword: list<string> = [], # Keywords that trigger denouncing (default: ["denounce"])
-  --unvouch-keyword: list<string> = [], # Keywords that trigger unvouching (default: ["unvouch"])
-  --allow-vouch = true,   # Enable vouch handling
-  --allow-denounce = true, # Enable denounce handling
-  --allow-unvouch = true,  # Enable unvouch handling
-  --dry-run = true,        # Print what would happen without making changes
+  issue_id: int,                          # GitHub issue number
+  comment_id: int,                        # GitHub comment ID
+  --repo (-R): string,                    # Repository in "owner/repo" format (optional in Actions; required otherwise)
+  --vouched-file: string = "",            # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
+  --vouch-keyword: list<string> = [],     # Keywords that trigger vouching (default: ["vouch"])
+  --denounce-keyword: list<string> = [],  # Keywords that trigger denouncing (default: ["denounce"])
+  --unvouch-keyword: list<string> = [],   # Keywords that trigger unvouching (default: ["unvouch"])
+  --allow-vouch = true,                   # Enable vouch handling
+  --allow-denounce = true,                # Enable denounce handling
+  --allow-unvouch = true,                 # Enable unvouch handling
+  --dry-run = true,                       # Print what would happen without making changes
 ] {
-  if ($repo | is-empty) {
+  let repo_to_use = if ($repo | is-empty) {
+    $env.GITHUB_REPOSITORY? | default ""
+  } else {
+    $repo
+  }
+
+  if ($repo_to_use | is-empty) {
     error make { msg: "--repo is required" }
   }
 
   let file = if ($vouched_file | is-empty) {
-    let default = default-path
-    if ($default | is-empty) {
-      ".github/VOUCHED.td"
-    } else {
-      $default
-    }
+    let d = default-path
+    if ($d | is-empty) { ".github/VOUCHED.td" } else { $d }
   } else {
     $vouched_file
   }
 
-  let owner = ($repo | split row "/" | first)
-  let repo_name = ($repo | split row "/" | last)
+  let owner = ($repo_to_use | split row "/" | first)
+  let repo_name = ($repo_to_use | split row "/" | last)
   let issue_data = api "get" $"/repos/($owner)/($repo_name)/issues/($issue_id)"
   let comment_data = api "get" $"/repos/($owner)/($repo_name)/issues/comments/($comment_id)"
 
@@ -219,7 +218,14 @@ export def gh-manage-by-issue [
   let denounce_keywords = if ($denounce_keyword | is-empty) { ["denounce"] } else { $denounce_keyword }
   let unvouch_keywords = if ($unvouch_keyword | is-empty) { ["unvouch"] } else { $unvouch_keyword }
 
-  let parsed = parse-comment $comment_body --vouch-keyword $vouch_keywords --denounce-keyword $denounce_keywords --unvouch-keyword $unvouch_keywords --allow-vouch=$allow_vouch --allow-denounce=$allow_denounce --allow-unvouch=$allow_unvouch
+  let parsed = (parse-comment $comment_body
+    --vouch-keyword $vouch_keywords
+    --denounce-keyword $denounce_keywords
+    --unvouch-keyword $unvouch_keywords
+    --allow-vouch=$allow_vouch
+    --allow-denounce=$allow_denounce
+    --allow-unvouch=$allow_unvouch
+  )
 
   if $parsed.action == null {
     print "Comment does not match any enabled action"
@@ -261,7 +267,6 @@ export def gh-manage-by-issue [
     let new_records = $records | add-user $target_user --default-platform github --details $reason
     $new_records | to td | save -f $file
 
-    # React to the comment with a thumbs up to indicate success, ignoring errors.
     try { react $owner $repo_name $comment_id "+1" }
 
     print $"Added ($target_user) to vouched contributors"
@@ -284,7 +289,6 @@ export def gh-manage-by-issue [
     let new_records = $records | denounce-user $target_user $reason --default-platform github
     $new_records | to td | save -f $file
 
-    # React to the comment with a thumbs up to indicate success, ignoring errors.
     try { react $owner $repo_name $comment_id "+1" }
 
     print $"Denounced ($target_user)"
@@ -306,7 +310,6 @@ export def gh-manage-by-issue [
     let new_records = $records | remove-user $target_user --default-platform github
     $new_records | to td | save -f $file
 
-    # React to the comment with a thumbs up to indicate success, ignoring errors.
     try { react $owner $repo_name $comment_id "+1" }
 
     print $"Removed ($target_user) from vouched contributors"
@@ -314,7 +317,7 @@ export def gh-manage-by-issue [
   }
 }
 
-# Manage contributor status via discussion comments.
+# Manage contributor status via discussion comments (GraphQL).
 #
 # This checks if a comment matches a vouch keyword (default: "vouch"),
 # denounce keyword (default: "denounce"), or unvouch keyword (default:
@@ -357,35 +360,37 @@ export def gh-manage-by-issue [
 #   ./vouch.nu gh-manage-by-discussion 42 DC_kwDOExample --vouch-keyword [lgtm approve]
 #
 export def gh-manage-by-discussion [
-  discussion_number: int,  # GitHub discussion number
-  comment_node_id: string, # GraphQL node ID of the comment (e.g. DC_kwDO...)
-  --repo (-R): string,     # Repository in "owner/repo" format (required)
-  --vouched-file: string = "",  # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
-  --vouch-keyword: list<string> = [], # Keywords that trigger vouching (default: ["vouch"])
-  --denounce-keyword: list<string> = [], # Keywords that trigger denouncing (default: ["denounce"])
-  --unvouch-keyword: list<string> = [], # Keywords that trigger unvouching (default: ["unvouch"])
-  --allow-vouch = true,   # Enable vouch handling
-  --allow-denounce = true, # Enable denounce handling
-  --allow-unvouch = true,  # Enable unvouch handling
-  --dry-run = true,        # Print what would happen without making changes
+  discussion_number: int,                 # GitHub discussion number
+  comment_node_id: string,                # GraphQL node ID of the comment (e.g. DC_kwDO...)
+  --repo (-R): string,                    # Repository in "owner/repo" format (optional in Actions; required otherwise)
+  --vouched-file: string = "",            # Path to vouched contributors file (default: VOUCHED.td or .github/VOUCHED.td)
+  --vouch-keyword: list<string> = [],     # Keywords that trigger vouching (default: ["vouch"])
+  --denounce-keyword: list<string> = [],  # Keywords that trigger denouncing (default: ["denounce"])
+  --unvouch-keyword: list<string> = [],   # Keywords that trigger unvouching (default: ["unvouch"])
+  --allow-vouch = true,                   # Enable vouch handling
+  --allow-denounce = true,                # Enable denounce handling
+  --allow-unvouch = true,                 # Enable unvouch handling
+  --dry-run = true,                       # Print what would happen without making changes
 ] {
-  if ($repo | is-empty) {
+  let repo_to_use = if ($repo | is-empty) {
+    $env.GITHUB_REPOSITORY? | default ""
+  } else {
+    $repo
+  }
+
+  if ($repo_to_use | is-empty) {
     error make { msg: "--repo is required" }
   }
 
   let file = if ($vouched_file | is-empty) {
-    let default = default-path
-    if ($default | is-empty) {
-      ".github/VOUCHED.td"
-    } else {
-      $default
-    }
+    let d = default-path
+    if ($d | is-empty) { ".github/VOUCHED.td" } else { $d }
   } else {
     $vouched_file
   }
 
-  let owner = ($repo | split row "/" | first)
-  let repo_name = ($repo | split row "/" | last)
+  let owner = ($repo_to_use | split row "/" | first)
+  let repo_name = ($repo_to_use | split row "/" | last)
 
   const gql_dir = (path self | path dirname | path join "gql")
   let query = open -r ([$gql_dir "gh-discussion-comment.gql"] | path join)
@@ -403,7 +408,15 @@ export def gh-manage-by-discussion [
   let denounce_keywords = if ($denounce_keyword | is-empty) { ["denounce"] } else { $denounce_keyword }
   let unvouch_keywords = if ($unvouch_keyword | is-empty) { ["unvouch"] } else { $unvouch_keyword }
 
-  let parsed = parse-comment $body --vouch-keyword $vouch_keywords --denounce-keyword $denounce_keywords --unvouch-keyword $unvouch_keywords --allow-vouch=$allow_vouch --allow-denounce=$allow_denounce --allow-unvouch=$allow_unvouch
+  # FIX: wrap multi-line call in parentheses so Nu parses it
+  let parsed = (parse-comment $body
+    --vouch-keyword $vouch_keywords
+    --denounce-keyword $denounce_keywords
+    --unvouch-keyword $unvouch_keywords
+    --allow-vouch=$allow_vouch
+    --allow-denounce=$allow_denounce
+    --allow-unvouch=$allow_unvouch
+  )
 
   if $parsed.action == null {
     print "Comment does not match any enabled action"
@@ -495,11 +508,125 @@ export def gh-manage-by-discussion [
   }
 }
 
+# Orchestrate the full management cycle (manage + commit + push) with retries.
+export def gh-manage-and-push [
+  --type: string,                 # "issue" or "discussion"
+  --id: int,                      # issue or discussion number
+  --comment-id: string,           # comment ID or node ID
+  --repo: string,                 # optional in Actions; required otherwise
+  --vouched-file: string,
+  --vouch-keyword: list<string>,
+  --denounce-keyword: list<string>,
+  --unvouch-keyword: list<string>,
+  --allow-vouch = true,
+  --allow-denounce = true,
+  --allow-unvouch = true,
+  --dry-run = true,
+] {
+  let repo_to_use = if ($repo | is-empty) {
+    $env.GITHUB_REPOSITORY? | default ""
+  } else {
+    $repo
+  }
+
+  if ($repo_to_use | is-empty) {
+    error make { msg: "--repo is required" }
+  }
+
+  let file = if ($vouched_file | is-empty) {
+    default-path | default ".github/VOUCHED.td"
+  } else {
+    $vouched_file
+  }
+
+  if not $dry_run {
+    git config user.name "github-actions[bot]"
+    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+  }
+
+  mut last_status = "unchanged"
+
+  for attempt in 1..5 {
+    if $attempt > 1 {
+      print $"Push failed, retrying (attempt ($attempt)/5)..."
+      git fetch origin main
+      git reset --hard origin/main
+    }
+
+    # FIX: wrap call in parentheses, and use spaced flags (avoid --repo=$var)
+    let status = if $type == "issue" {
+      (gh-manage-by-issue ($id | into int) ($comment_id | into int)
+        --repo $repo_to_use
+        --vouched-file $file
+        --vouch-keyword $vouch_keyword
+        --denounce-keyword $denounce_keyword
+        --unvouch-keyword $unvouch_keyword
+        --allow-vouch $allow_vouch
+        --allow-denounce $allow_denounce
+        --allow-unvouch $allow_unvouch
+        --dry-run $dry_run
+      )
+    } else {
+      (gh-manage-by-discussion ($id | into int) $comment_id
+        --repo $repo_to_use
+        --vouched-file $file
+        --vouch-keyword $vouch_keyword
+        --denounce-keyword $denounce_keyword
+        --unvouch-keyword $unvouch_keyword
+        --allow-vouch $allow_vouch
+        --allow-denounce $allow_denounce
+        --allow-unvouch $allow_unvouch
+        --dry-run $dry_run
+      )
+    }
+
+    $last_status = $status
+
+    if $dry_run or $status == "unchanged" {
+      break
+    }
+
+    let is_new = (git ls-files $file | str trim | is-empty)
+    if $is_new {
+      git add $file
+    }
+
+    let diff = git diff --quiet $file | complete
+    if $diff.exit_code == 0 and not $is_new {
+      print "No changes to commit"
+      break
+    }
+
+    let server_url = ($env.GITHUB_SERVER_URL? | default "https://github.com")
+    let url = if $type == "issue" {
+      $"($server_url)/($repo_to_use)/issues/($id)#issuecomment-($comment_id)"
+    } else {
+      $"($server_url)/($repo_to_use)/discussions/($id)#discussioncomment-($comment_id)"
+    }
+
+    git add $file
+    git commit -m $"Update VOUCHED list\n\n($url)"
+
+    let push_res = git push | complete
+    if $push_res.exit_code == 0 {
+      break
+    }
+
+    if $attempt == 5 {
+      print $push_res.stderr
+      error make { msg: "Failed to push after 5 attempts" }
+    }
+
+    # Jittered backoff: 0.5s to 1.5s
+    sleep (1sec * (0.5 + (random float 0.0..1.0)))
+  }
+
+  return $last_status
+}
+
 # Add a reaction emoji to a GitHub issue comment using the Reactions API.
 def react [owner: string, repo: string, comment_id: int, reaction: string] {
-  api "post" $"/repos/($owner)/($repo)/issues/comments/($comment_id)/reactions" {
-    content: $reaction
-  }
+  api "post" $"/repos/($owner)/($repo)/issues/comments/($comment_id)/reactions" { content: $reaction }
 }
 
 # Add a reaction emoji to a GitHub node (e.g. discussion comment) using GraphQL.
