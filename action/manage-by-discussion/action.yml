@@ -81,5 +81,3 @@ runs:
           --dry-run=(${{ inputs.dry-run }} | into bool)
         )
         $"status=($status)" | save --append $env.GITHUB_OUTPUT
-
-
