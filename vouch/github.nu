@@ -495,6 +495,113 @@ export def gh-manage-by-discussion [
   }
 }
 
+# Orchestrate the full management cycle (manage + commit + push) with retries.
+export def gh-manage-and-push [
+  --type: string,          # "issue" or "discussion"
+  --id: int,               # issue or discussion number
+  --comment-id: string,    # comment ID or node ID
+  --repo: string,
+  --vouched-file: string,
+  --vouch-keyword: list<string>,
+  --denounce-keyword: list<string>,
+  --unvouch-keyword: list<string>,
+  --allow-vouch = true,   # Enable vouch handling
+  --allow-denounce = true, # Enable denounce handling
+  --allow-unvouch = true,  # Enable unvouch handling
+  --dry-run = true,        # Print what would happen without making changes
+] {
+  if ($repo | is-empty) {
+    error make { msg: "--repo is required" }
+  }
+
+  let file = if ($vouched_file | is-empty) {
+    default-path | default ".github/VOUCHED.td"
+  } else {
+    $vouched_file
+  }
+
+  if not $dry_run {
+    git config user.name "github-actions[bot]"
+    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+  }
+
+  mut last_status = "unchanged"
+
+  for attempt in 1..5 {
+    if $attempt > 1 {
+      print $"Push failed, retrying (attempt ($attempt)/5)..."
+      git fetch origin main
+      git reset --hard origin/main
+    }
+
+    let status = if $type == "issue" {
+      gh-manage-by-issue ($id | into int) ($comment_id | into int)
+        --repo=$repo
+        --vouched-file=$file
+        --vouch-keyword=$vouch_keyword
+        --denounce-keyword=$denounce_keyword
+        --unvouch-keyword=$unvouch_keyword
+        --allow-vouch=$allow_vouch
+        --allow-denounce=$allow_denounce
+        --allow-unvouch=$allow_unvouch
+        --dry-run=$dry_run
+    } else {
+      gh-manage-by-discussion ($id | into int) $comment_id
+        --repo=$repo
+        --vouched-file=$file
+        --vouch-keyword=$vouch_keyword
+        --denounce-keyword=$denounce_keyword
+        --unvouch-keyword=$unvouch_keyword
+        --allow-vouch=$allow_vouch
+        --allow-denounce=$allow_denounce
+        --allow-unvouch=$allow_unvouch
+        --dry-run=$dry_run
+    }
+
+    $last_status = $status
+
+    if $dry_run or $status == "unchanged" {
+      break
+    }
+
+    let is_new = (git ls-files $file | str trim | is-empty)
+    if $is_new {
+      git add $file
+    }
+
+    let diff = git diff --quiet $file | complete
+    if $diff.exit_code == 0 and not $is_new {
+      print "No changes to commit"
+      break
+    }
+
+    let server_url = ($env.GITHUB_SERVER_URL? | default "https://github.com")
+    let url = if $type == "issue" {
+      $"($server_url)/($repo)/issues/($id)#issuecomment-($comment_id)"
+    } else {
+      $"($server_url)/($repo)/discussions/($id)#discussioncomment-($comment_id)"
+    }
+
+    git add $file
+    git commit -m $"Update VOUCHED list\n\n($url)"
+
+    let push_res = git push | complete
+    if $push_res.exit_code == 0 {
+      break
+    }
+
+    if $attempt == 5 {
+      print $push_res.stderr
+      error make { msg: "Failed to push after 5 attempts" }
+    }
+
+    # Jittered backoff: 0.5s to 1.5s
+    sleep (1sec * (0.5 + (random float 0.0..1.0)))
+  }
+
+  return $last_status
+}
+
 # Add a reaction emoji to a GitHub issue comment using the Reactions API.
 def react [owner: string, repo: string, comment_id: int, reaction: string] {
   api "post" $"/repos/($owner)/($repo)/issues/comments/($comment_id)/reactions" {
