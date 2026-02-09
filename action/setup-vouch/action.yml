@@ -1,0 +1,44 @@
+name: Setup Vouch
+description: "Install Nushell and make the vouch CLI available on PATH."
+
+runs:
+  using: composite
+  steps:
+    - id: check-nu
+      shell: bash
+      run: |
+        if command -v nu &>/dev/null; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - if: steps.check-nu.outputs.found != 'true'
+      uses: hustcer/setup-nu@920172d92eb04671776f3ba69d605d3b09351c30 # v3.22
+      with:
+        version: "*"
+
+    # Generate a bash wrapper script and a small Nu entrypoint that
+    # loads the vouch module. Place the wrapper on PATH so subsequent
+    # steps can call `vouch` directly.
+    - shell: nu {0}
+      run: |
+        let vouch_root = ("${{ github.action_path }}" | path join ".." ".." | path expand)
+        let bin_dir = ($vouch_root | path join ".vouch-bin")
+        mkdir $bin_dir
+
+        let vouch_mod = ($vouch_root | path join "vouch")
+        [
+          "#!/usr/bin/env bash"
+          "# Nu modules can't be invoked directly as scripts, so we use"
+          "# nu -c with 'use vouch *' to bring subcommands into scope."
+          "#"
+          "# Build a shell-safe argument string from the caller's args."
+          "cmd=''"
+          "for a in \"$@\"; do cmd=\"$cmd $(printf '%q' \"$a\")\"; done"
+          "# With no args, call 'vouch main' for usage info since bare"
+          "# 'vouch' doesn't resolve via 'use vouch *'."
+          $"if [ $# -eq 0 ]; then cmd='vouch main'; fi"
+          $"exec nu --no-config-file -c \"use ($vouch_mod) *; $cmd\""
+        ] | str join "\n" | save -f ($bin_dir | path join "vouch")
+        chmod +x ($bin_dir | path join "vouch")
+
+        $bin_dir | save --append $env.GITHUB_PATH
