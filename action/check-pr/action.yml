@@ -25,6 +25,10 @@ inputs:
     description: "Path to the vouched contributors file in the repo."
     required: false
     default: ".github/VOUCHED.td"
+  vouched-repo:
+    description: "Repository for the vouched file in 'owner/repo' format (default: same as repo)."
+    required: false
+    default: ""
 
 outputs:
   status:
@@ -46,6 +50,7 @@ runs:
         let status = (gh-check-pr
           ${{ inputs.pr-number }}
           --repo "${{ inputs.repo || github.repository }}"
+          --vouched-repo "${{ inputs.vouched-repo }}"
           --vouched-file "${{ inputs.vouched-file }}"
           --require-vouch=${{ inputs.require-vouch }}
           --auto-close=${{ inputs.auto-close }}

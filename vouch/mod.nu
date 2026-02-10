@@ -12,6 +12,7 @@ export use cli.nu [
 
 # The GitHub integration commands.
 export use github.nu [
+  gh-check-issue
   gh-check-pr
   gh-manage-by-discussion
   gh-manage-by-issue
