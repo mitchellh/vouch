@@ -13,3 +13,5 @@
   intent to act).
 - Each action should have a `README.md` with a usage example,
   inputs/outputs table, and any relevant notes.
+- When an action is updated, also update the repo root `README.md` if
+  necessary to keep the usage example and documentation in sync.

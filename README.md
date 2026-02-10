@@ -78,12 +78,13 @@ For an example, look at this repository! It fully integrates vouch.
 Below is a list of the actions and a brief description of their function.
 See the linked README in the action directory for full usage details.
 
-| Action                                                        | Trigger               | Description                                                                                                                                                                         |
-| ------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [check-pr](action/check-pr/README.md)                         | `pull_request_target` | Check if a PR author is vouched on open or reopen. Bots and collaborators with write access are automatically allowed. Optionally auto-close PRs from unvouched or denounced users. |
-| [manage-by-discussion](action/manage-by-discussion/README.md) | `discussion_comment`  | Let collaborators vouch, denounce, or unvouch users via discussion comments. Updates the vouched file and commits the change.                                                       |
-| [manage-by-issue](action/manage-by-issue/README.md)           | `issue_comment`       | Let collaborators vouch or denounce users via issue comments. Updates the vouched file and commits the change.                                                                      |
-| [setup-vouch](action/setup-vouch/README.md)                   | Any                   | Install the `vouch` CLI on `PATH`. Nushell is installed automatically if not already available.                                                                                     |
+| Action                                                        | Trigger               | Description                                                                                                                                                                                |
+| ------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [check-issue](action/check-issue/README.md)                   | `issues`              | Check if an issue author is vouched on open or reopen. Bots and collaborators with write access are automatically allowed. Optionally auto-close issues from unvouched or denounced users. |
+| [check-pr](action/check-pr/README.md)                         | `pull_request_target` | Check if a PR author is vouched on open or reopen. Bots and collaborators with write access are automatically allowed. Optionally auto-close PRs from unvouched or denounced users.        |
+| [manage-by-discussion](action/manage-by-discussion/README.md) | `discussion_comment`  | Let collaborators vouch, denounce, or unvouch users via discussion comments. Updates the vouched file and commits the change.                                                              |
+| [manage-by-issue](action/manage-by-issue/README.md)           | `issue_comment`       | Let collaborators vouch or denounce users via issue comments. Updates the vouched file and commits the change.                                                                             |
+| [setup-vouch](action/setup-vouch/README.md)                   | Any                   | Install the `vouch` CLI on `PATH`. Nushell is installed automatically if not already available.                                                                                            |
 
 ### CLI
 
@@ -99,6 +100,7 @@ use vouch *
 help add
 help check
 help denounce
+help gh-check-issue
 help gh-check-pr
 help gh-manage-by-issue
 ```
@@ -140,6 +142,24 @@ vouch denounce badactor --write
 
 Requires the `GITHUB_TOKEN` environment variable. If not set and `gh`
 is available, the token from `gh auth token` is used.
+
+**Check if an issue author is vouched:**
+
+```bash
+# Check issue author status (dry run)
+vouch gh-check-issue 123 --repo owner/repo
+
+# Auto-close unvouched issues (dry run)
+vouch gh-check-issue 123 --repo owner/repo --auto-close
+
+# Actually close unvouched issues
+vouch gh-check-issue 123 --repo owner/repo --auto-close --dry-run=false
+
+# Allow unvouched users, only block denounced
+vouch gh-check-issue 123 --repo owner/repo --require-vouch=false --auto-close
+```
+
+Outputs status: `skipped` (bot/collaborator), `vouched`, `allowed`, or `closed`.
 
 **Check if a PR author is vouched:**
 

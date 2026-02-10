@@ -1,0 +1,59 @@
+name: Check Issue
+description: "Check if an issue author is a vouched contributor, optionally closing unvouched issues."
+
+inputs:
+  issue-number:
+    description: "GitHub issue number."
+    required: true
+  auto-close:
+    description: "Automatically close issues from unvouched or denounced users."
+    required: false
+    default: "false"
+  dry-run:
+    description: "Print what would happen without making changes."
+    required: false
+    default: "false"
+  repo:
+    description: "Repository in 'owner/repo' format (default: current repository)."
+    required: false
+    default: ""
+  require-vouch:
+    description: "Require users to be vouched (false = only block denounced)."
+    required: false
+    default: "true"
+  vouched-file:
+    description: "Path to the vouched contributors file in the repo."
+    required: false
+    default: ".github/VOUCHED.td"
+  vouched-repo:
+    description: "Repository for the vouched file in 'owner/repo' format (default: same as repo)."
+    required: false
+    default: ""
+
+outputs:
+  status:
+    description: "Result status: skipped, vouched, allowed, or closed"
+    value: ${{ steps.run.outputs.status }}
+
+runs:
+  using: composite
+  steps:
+    - uses: hustcer/setup-nu@920172d92eb04671776f3ba69d605d3b09351c30 # v3.22
+      with:
+        version: "*"
+
+    - id: run
+      shell: nu {0}
+      run: |
+        use "${{ github.action_path }}/../../vouch" *
+
+        let status = (gh-check-issue
+          ${{ inputs.issue-number }}
+          --repo "${{ inputs.repo || github.repository }}"
+          --vouched-repo "${{ inputs.vouched-repo }}"
+          --vouched-file "${{ inputs.vouched-file }}"
+          --require-vouch=${{ inputs.require-vouch }}
+          --auto-close=${{ inputs.auto-close }}
+          --dry-run=${{ inputs.dry-run }}
+        )
+        $"status=($status)" | save --append $env.GITHUB_OUTPUT
