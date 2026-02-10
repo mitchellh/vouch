@@ -53,4 +53,9 @@ jobs:
       - uses: hustcer/setup-nu@920172d92eb04671776f3ba69d605d3b09351c30 # v3.22
         with:
           version: "*"
-      - run: nu tests/run.nu
+      - name: Fast tests
+        run: nu tests/run.nu --fast
+      - name: Slow tests
+        run: nu tests/run.nu --slow
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
