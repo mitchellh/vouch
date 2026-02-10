@@ -12,6 +12,8 @@ A file for [guiding coding agents](https://agents.md/).
 
 ## Nu
 
+- Try to limit line length to ~70 characters if an expression
+  can be split in a readable way across multiple lines.
 - The order of definitions in Nu files should be:
   (1) Exported definitions (alphabetically sorted)
   (2) Helper commands (exported, alphabetically sorted)
@@ -29,3 +31,5 @@ A file for [guiding coding agents](https://agents.md/).
 
 - Prefer GraphQL to limit REST requests if possible.
 - GraphQL bodies go into `vouch/gql/*.gql`.
+- If `gh` is available, test `gh-*` functions by running them with dry-run
+  against discovered content from the `mitchellh/vouch` repo.

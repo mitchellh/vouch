@@ -32,6 +32,7 @@ use lib.nu [add-user, check-user, denounce-user, parse-comment, remove-user]
 export def gh-check-pr [
   pr_number: int,              # GitHub PR number
   --repo (-R): string,         # Repository in "owner/repo" format (required)
+  --vouched-repo: string,      # Repository for the vouched file (defaults to --repo)
   --vouched-file: string = ".github/VOUCHED.td", # Path to vouched contributors file in the repo
   --require-vouch = true,      # Require users to be vouched (false = only block denounced)
   --auto-close = false,        # Automatically close PRs from unvouched/denounced users
@@ -41,14 +42,17 @@ export def gh-check-pr [
     error make { msg: "--repo is required" }
   }
 
-  let owner = ($repo | split row "/" | first)
-  let repo_name = ($repo | split row "/" | last)
+  let repo_parts = ($repo | split row "/" | {owner: $in.0, name: $in.1})
 
-  let pr_data = api "get" $"/repos/($owner)/($repo_name)/pulls/($pr_number)"
+  let pr_data = api "get" $"/repos/($repo_parts.owner)/($repo_parts.name)/pulls/($pr_number)"
   let pr_author = $pr_data.user.login
   let default_branch = $pr_data.base.repo.default_branch
 
-  let result = gh-check-user $pr_author -R $repo --vouched-file $vouched_file --default-branch $default_branch
+  let result = (gh-check-user $pr_author
+    -R $repo
+    --vouched-repo $vouched_repo
+    --vouched-file $vouched_file
+    --default-branch $default_branch)
 
   if $result.status == "bot" {
     print $"($pr_author) is a bot, skipping"
@@ -81,11 +85,11 @@ export def gh-check-pr [
       return "closed"
     }
 
-    api "post" $"/repos/($owner)/($repo_name)/issues/($pr_number)/comments" {
+    api "post" $"/repos/($repo_parts.owner)/($repo_parts.name)/issues/($pr_number)/comments" {
       body: $message
     }
 
-    api "patch" $"/repos/($owner)/($repo_name)/pulls/($pr_number)" {
+    api "patch" $"/repos/($repo_parts.owner)/($repo_parts.name)/pulls/($pr_number)" {
       state: "closed"
     }
 
@@ -109,18 +113,18 @@ export def gh-check-pr [
 
   This project requires that pull request authors are vouched, and you are not in the list of vouched users. 
 
-This PR will be closed automatically. See https://github.com/($owner)/($repo_name)/blob/($default_branch)/CONTRIBUTING.md for more details."
+This PR will be closed automatically. See https://github.com/($repo_parts.owner)/($repo_parts.name)/blob/($default_branch)/CONTRIBUTING.md for more details."
 
   if $dry_run {
     print "(dry-run) Would post comment and close PR"
     return "closed"
   }
 
-  api "post" $"/repos/($owner)/($repo_name)/issues/($pr_number)/comments" {
+  api "post" $"/repos/($repo_parts.owner)/($repo_parts.name)/issues/($pr_number)/comments" {
     body: $message
   }
 
-  api "patch" $"/repos/($owner)/($repo_name)/pulls/($pr_number)" {
+  api "patch" $"/repos/($repo_parts.owner)/($repo_parts.name)/pulls/($pr_number)" {
     state: "closed"
   }
 
@@ -156,6 +160,7 @@ This PR will be closed automatically. See https://github.com/($owner)/($repo_nam
 export def gh-check-issue [
   issue_number: int,             # GitHub issue number
   --repo (-R): string,           # Repository in "owner/repo" format (required)
+  --vouched-repo: string,        # Repository for the vouched file (defaults to --repo)
   --vouched-file: string = ".github/VOUCHED.td", # Path to vouched contributors file in the repo
   --require-vouch = true,        # Require users to be vouched (false = only block denounced)
   --auto-close = false,          # Automatically close issues from unvouched/denounced users
@@ -175,7 +180,11 @@ export def gh-check-issue [
     $repo_data.default_branch
   }
 
-  let result = gh-check-user $issue_author -R $repo --vouched-file $vouched_file --default-branch $default_branch
+  let result = (gh-check-user $issue_author
+    -R $repo
+    --vouched-repo $vouched_repo
+    --vouched-file $vouched_file
+    --default-branch $default_branch)
 
   if $result.status == "bot" {
     print $"($issue_author) is a bot, skipping"
@@ -556,7 +565,8 @@ def gh-apply-action [
   { status: "unchanged", acted: false }
 }
 
-# Check if a GitHub user is vouched for a repository.
+# Check if a GitHub user is vouched in the vouch file in the given 
+# repository.
 #
 # Returns a record with:
 #   - status: "bot", "collaborator", "vouched", "denounced", or "unknown"
@@ -564,33 +574,45 @@ def gh-apply-action [
 def gh-check-user [
   user: string,            # GitHub username to check
   --repo (-R): string,     # Repository in "owner/repo" format
+  --vouched-repo: string,  # Repository for the vouched file (defaults to --repo)
   --vouched-file: string,  # Path to vouched contributors file in the repo
   --default-branch: string, # Default branch of the repo
 ] {
-  let owner = ($repo | split row "/" | first)
-  let repo_name = ($repo | split row "/" | last)
+  let repo_parts = ($repo | split row "/" | {owner: $in.0, name: $in.1})
+  let vouch_parts = ($vouched_repo | default $repo | split row "/" | {owner: $in.0, name: $in.1})
 
+  # All usernames that end with [bot] are bots and we allow it. The `[]`
+  # characters aren't valid at the time of writing this for user accounts.
   if ($user | str ends-with "[bot]") {
     return { status: "bot" }
   }
 
+  # See if this user has special permissions for the target repo.
   let permission = try {
-    api "get" $"/repos/($owner)/($repo_name)/collaborators/($user)/permission" | get permission
+    (api "get"
+      $"/repos/($repo_parts.owner)/($repo_parts.name)/collaborators/($user)/permission"
+      | get permission)
   } catch {
     null
   }
-
   if $permission in ["admin", "write"] {
     return { status: "collaborator", permission: $permission }
   }
 
+  # Grab the vouched file contents
   let records = try {
-    let file_data = api "get" $"/repos/($owner)/($repo_name)/contents/($vouched_file)?ref=($default_branch)"
-    $file_data.content | str replace -a "\n" "" | decode base64 | decode utf-8 | from td
+    let file_data = (api "get"
+      $"/repos/($vouch_parts.owner)/($vouch_parts.name)/contents/($vouched_file)?ref=($default_branch)")
+    ($file_data.content
+      | str replace -a "\n" ""
+      | decode base64
+      | decode utf-8
+      | from td)
   } catch {
     []
   }
 
+  # Check the status using standard lib functions
   let vouch_status = $records | check-user $user --default-platform github
   { status: $vouch_status }
 }
