@@ -3,6 +3,7 @@ name: Update Floating Tags
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 jobs:
   update-floating-tags:
@@ -16,4 +17,7 @@ jobs:
       - uses: hustcer/setup-nu@920172d92eb04671776f3ba69d605d3b09351c30 # v3.22
         with:
           version: "*"
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - run: nu .github/scripts/update-floating-tags.nu --dry-run=false
