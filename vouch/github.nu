@@ -605,12 +605,12 @@ def gh-apply-action [
 # Returns a record with:
 #   - status: "bot", "collaborator", "vouched", "denounced", or "unknown"
 #   - permission: collaborator permission level (only set for "collaborator" status)
-def gh-check-user [
+export def gh-check-user [
   user: string,            # GitHub username to check
   --repo (-R): string,     # Repository in "owner/repo" format
   --vouched-repo: string,  # Repository for the vouched file (defaults to --repo)
   --vouched-file: string,  # Path to vouched contributors file in the repo
-  --default-branch: string, # Default branch of the repo
+  --default-branch: string, # Default branch of the repo (fetched if not set)
 ] {
   let repo_parts = ($repo | split row "/" | {owner: $in.0, name: $in.1})
   let vr = if ($vouched_repo | default "" | is-empty) { $repo } else { $vouched_repo }
@@ -634,10 +634,18 @@ def gh-check-user [
     return { status: "collaborator", permission: $permission }
   }
 
+  let branch = if ($default_branch | default "" | is-not-empty) {
+    $default_branch
+  } else {
+    (api "get"
+      $"/repos/($vouch_parts.owner)/($vouch_parts.name)"
+      | get default_branch)
+  }
+
   # Grab the vouched file contents
   let records = try {
     let file_data = (api "get"
-      $"/repos/($vouch_parts.owner)/($vouch_parts.name)/contents/($vouched_file)?ref=($default_branch)")
+      $"/repos/($vouch_parts.owner)/($vouch_parts.name)/contents/($vouched_file)?ref=($branch)")
     ($file_data.content
       | str replace -a "\n" ""
       | decode base64

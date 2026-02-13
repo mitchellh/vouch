@@ -14,6 +14,7 @@ export use cli.nu [
 export use github.nu [
   gh-check-issue
   gh-check-pr
+  gh-check-user
   gh-manage-by-discussion
   gh-manage-by-issue
 ]

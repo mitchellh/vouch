@@ -1,0 +1,63 @@
+name: Check User
+description: "Check if a GitHub user is a vouched contributor."
+
+inputs:
+  user:
+    description: "GitHub username to check."
+    required: true
+  allow-fail:
+    description: "Allow the step to pass even if the user is not vouched."
+    required: false
+    default: "false"
+  repo:
+    description: "Repository in 'owner/repo' format (default: current repository)."
+    required: false
+    default: ""
+  vouched-file:
+    description: "Path to the vouched contributors file in the repo."
+    required: false
+    default: ".github/VOUCHED.td"
+  vouched-repo:
+    description: "Repository for the vouched file in 'owner/repo' format (default: same as repo)."
+    required: false
+    default: ""
+
+outputs:
+  status:
+    description: "Result status: bot, collaborator, vouched, denounced, or unknown"
+    value: ${{ steps.run.outputs.status }}
+  vouched:
+    description: "Whether the user is vouched (true for bot, collaborator, vouched)"
+    value: ${{ steps.run.outputs.vouched }}
+
+runs:
+  using: composite
+  steps:
+    - uses: hustcer/setup-nu@920172d92eb04671776f3ba69d605d3b09351c30 # v3.22
+      with:
+        version: "*"
+
+    - id: run
+      shell: nu {0}
+      run: |
+        use "${{ github.action_path }}/../../vouch" *
+
+        let repo_data = (gh-check-user "${{ inputs.user }}"
+          -R "${{ inputs.repo || github.repository }}"
+          --vouched-repo "${{ inputs.vouched-repo }}"
+          --vouched-file "${{ inputs.vouched-file }}"
+        )
+
+        let status = $repo_data.status
+        print $"User ${{ inputs.user }}: ($status)"
+        let vouched = $status in ["bot", "collaborator", "vouched"]
+        $"status=($status)\nvouched=($vouched)"
+          | save --append $env.GITHUB_OUTPUT
+
+        if "${{ inputs.allow-fail }}" != "true" {
+          if $status in ["denounced", "unknown"] {
+            error make {
+              msg: $"User ${{ inputs.user }} is not vouched \(($status))"
+            }
+          }
+        }
