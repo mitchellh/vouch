@@ -81,15 +81,15 @@ export def check [
   match $status {
     "vouched" => {
       print $"($username) is vouched"
-      exit 0
+      if not $nu.is-interactive { exit 0 }
     }
     "denounced" => {
       print $"($username) is denounced"
-      exit 1
+      if not $nu.is-interactive { exit 1 }
     }
     _ => {
       print $"($username) is unknown"
-      exit 2
+      if not $nu.is-interactive { exit 2 }
     }
   }
 }
