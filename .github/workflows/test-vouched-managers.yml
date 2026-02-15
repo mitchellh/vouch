@@ -1,0 +1,84 @@
+name: Test Vouched Managers
+
+on:
+  push: {}
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vouched-managers:
+    if: >
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name != github.repository)
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: hustcer/setup-nu@920172d92eb04671776f3ba69d605d3b09351c30 # v3.22
+        with:
+          version: "*"
+
+      - name: can-manage allows user listed in managers file
+        run: |
+          nu -c '
+            use vouch/github.nu [can-manage]
+            let result = (can-manage "meherhendi"
+              "mitchellh" "vouch"
+              --roles [nonexistent_role]
+              --vouched-managers {
+                repo: "mitchellh/vouch"
+                file: ".github/VOUCHED.td"
+                ref: "main"
+              })
+            if not $result {
+              print "FAIL: expected user in managers file to be allowed"
+              exit 1
+            }
+            print "PASS"
+          '
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: can-manage denies user not in managers file
+        run: |
+          nu -c '
+            use vouch/github.nu [can-manage]
+            let result = (can-manage "nonexistent-user-xyz"
+              "mitchellh" "vouch"
+              --roles [nonexistent_role]
+              --vouched-managers {
+                repo: "mitchellh/vouch"
+                file: ".github/VOUCHED.td"
+                ref: "main"
+              })
+            if $result {
+              print "FAIL: expected user not in managers file to be denied"
+              exit 1
+            }
+            print "PASS"
+          '
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: can-manage denies without managers file
+        run: |
+          nu -c '
+            use vouch/github.nu [can-manage]
+            let result = (can-manage "meherhendi"
+              "mitchellh" "vouch"
+              --roles [nonexistent_role])
+            if $result {
+              print "FAIL: expected denial without managers file"
+              exit 1
+            }
+            print "PASS"
+          '
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
