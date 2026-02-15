@@ -28,6 +28,14 @@ inputs:
     description: "Print what would happen without making changes."
     required: false
     default: "false"
+  merge-immediately:
+    description: "Merge the pull request immediately after creation (only applies when pull-request is true)."
+    required: false
+    default: "false"
+  pull-request:
+    description: "Create a pull request instead of pushing directly."
+    required: false
+    default: "false"
   repo:
     description: "Repository in 'owner/repo' format (default: current repository)."
     required: false
@@ -109,6 +117,8 @@ runs:
           --roles $roles
           --vouched-managers $vouched_managers
           --commit-message $commit_msg
+          --pull-request=${{ inputs.pull-request }}
+          --merge-immediately=${{ inputs.merge-immediately }}
           --dry-run=${{ inputs.dry-run }}
         )
         $"status=($status)" | save --append $env.GITHUB_OUTPUT

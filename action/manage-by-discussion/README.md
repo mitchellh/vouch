@@ -51,6 +51,8 @@ jobs:
 | `allow-vouch`           | No       | `"true"`  | Enable vouch handling                                                                                                                                              |
 | `denounce-keyword`      | No       | `""`      | Comma-separated keywords that trigger denouncing (default: `denounce`)                                                                                             |
 | `dry-run`               | No       | `"false"` | Print what would happen without making changes                                                                                                                     |
+| `merge-immediately`     | No       | `"false"` | Merge the pull request immediately after creation (only applies when `pull-request` is `"true"`)                                                                   |
+| `pull-request`          | No       | `"false"` | Create a pull request instead of pushing directly                                                                                                                  |
 | `roles`                 | No       | `""`      | Comma-separated role names allowed to manage (default: `admin,maintain,write,triage`). When empty, also accepts the legacy `permission` values `admin` or `write`. |
 | `repo`                  | No       | `""`      | Repository in `owner/repo` format (default: current repository)                                                                                                    |
 | `unvouch-keyword`       | No       | `""`      | Comma-separated keywords that trigger unvouching (default: `unvouch`)                                                                                              |
@@ -86,3 +88,7 @@ Comments from collaborators with sufficient permissions are matched:
 When `dry-run` is `"false"`, the action commits and pushes any changes
 to the VOUCHED file automatically. The caller must check out the
 repository before using this action.
+
+When `pull-request` is `"true"`, the action creates a new branch and
+opens a pull request instead of pushing directly to the default branch.
+This requires `pull-requests: write` permission.

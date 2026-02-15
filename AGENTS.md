@@ -13,7 +13,8 @@ A file for [guiding coding agents](https://agents.md/).
 ## Nu
 
 - Try to limit line length to ~70 characters if an expression
-  can be split in a readable way across multiple lines.
+  can be split in a readable way across multiple lines. Don't split
+  strings in non-ergonomic ways just to fit within the line length limit.
 - The order of definitions in Nu files should be:
   (1) Exported definitions (alphabetically sorted)
   (2) Helper commands (exported, alphabetically sorted)

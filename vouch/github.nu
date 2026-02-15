@@ -307,6 +307,9 @@ This issue will be closed automatically. See https://github.com/($owner)/($repo_
 #   # Custom vouch keywords
 #   ./vouch.nu gh-manage-by-issue 123 456789 --vouch-keyword [lgtm approve]
 #
+#   # Create a pull request instead of pushing directly
+#   ./vouch.nu gh-manage-by-issue 123 456789 --pull-request --dry-run=false
+#
 export def gh-manage-by-issue [
   issue_id: int,           # GitHub issue number
   comment_id: int,         # GitHub comment ID
@@ -322,6 +325,8 @@ export def gh-manage-by-issue [
   --vouched-managers: record, # Optional managers file config
   --commit = true,         # Commit and push changes
   --commit-message: string = "", # Git commit message
+  --pull-request = false,  # Create a pull request instead of pushing directly
+  --merge-immediately = false, # Merge the pull request immediately after creation
   --dry-run = true,        # Print what would happen without making changes
 ] {
   if ($repo | is-empty) {
@@ -392,13 +397,30 @@ export def gh-manage-by-issue [
     --dry-run=$dry_run)
 
   if $result.acted and $commit {
-    (commit-and-push $file
-      --message $commit_message
-      --retry 3
-      --retry-action {
-        $prior | save -f $file
-        gh-apply-action $parsed.action $target_user $parsed.reason $file
-      })
+    if $pull_request {
+      let branch = (commit-and-push $file
+        --message $commit_message
+        --branch "vouch/")
+      let title = (
+        $commit_message
+        | default -e "Update VOUCHED list"
+        | lines
+        | first
+      )
+      let comment_url = $"https://github.com/($owner)/($repo_name)/issues/($issue_id)#issuecomment-($comment_id)"
+      let body = $"Triggered by [comment]\(($comment_url)\) from @($commenter)."
+      open-pr $owner $repo_name $branch $title $body --merge-immediately=$merge_immediately
+    } else {
+      (commit-and-push $file
+        --message $commit_message
+        --retry 3
+        --retry-action {
+          $prior | save -f $file
+          gh-apply-action (
+            $parsed.action
+          ) $target_user $parsed.reason $file
+        })
+    }
     try { react $owner $repo_name $comment_id "+1" }
   }
 
@@ -451,6 +473,9 @@ export def gh-manage-by-issue [
 #   # Custom vouch keywords
 #   ./vouch.nu gh-manage-by-discussion 42 DC_kwDOExample --vouch-keyword [lgtm approve]
 #
+#   # Create a pull request instead of pushing directly
+#   ./vouch.nu gh-manage-by-discussion 42 DC_kwDOExample --pull-request --dry-run=false
+#
 export def gh-manage-by-discussion [
   discussion_number: int,  # GitHub discussion number
   comment_node_id: string, # GraphQL node ID of the comment (e.g. DC_kwDO...)
@@ -466,6 +491,8 @@ export def gh-manage-by-discussion [
   --vouched-managers: record, # Optional managers file config
   --commit = true,         # Commit and push changes
   --commit-message: string = "", # Git commit message
+  --pull-request = false,  # Create a pull request instead of pushing directly
+  --merge-immediately = false, # Merge the pull request immediately after creation
   --dry-run = true,        # Print what would happen without making changes
 ] {
   if ($repo | is-empty) {
@@ -542,13 +569,28 @@ export def gh-manage-by-discussion [
     --dry-run=$dry_run)
 
   if $result.acted and $commit {
-    (commit-and-push $file
-      --message $commit_message
-      --retry 3
-      --retry-action {
-        $prior | save -f $file
-        gh-apply-action $parsed.action $target_user $parsed.reason $file
-      })
+    if $pull_request {
+      let branch = (commit-and-push $file
+        --message $commit_message
+        --branch "vouch/")
+      let title = (
+        $commit_message
+        | default -e "Update VOUCHED list"
+        | lines
+        | first
+      )
+      let discussion_url = $"https://github.com/($owner)/($repo_name)/discussions/($discussion_number)"
+      let body = $"Triggered by [discussion comment]\(($discussion_url)\) from @($commenter)."
+      open-pr $owner $repo_name $branch $title $body --merge-immediately=$merge_immediately
+    } else {
+      (commit-and-push $file
+        --message $commit_message
+        --retry 3
+        --retry-action {
+          $prior | save -f $file
+          gh-apply-action $parsed.action $target_user $parsed.reason $file
+        })
+    }
     try { react-graphql $comment_node_id "+1" }
   }
 
@@ -718,6 +760,35 @@ export def gh-check-user [
   { status: $vouch_status }
 }
 
+# Create a pull request from the given branch into the
+# repository's default branch.
+def open-pr [
+  owner: string,   # Repository owner
+  repo: string,    # Repository name
+  branch: string,  # Head branch name
+  title: string,   # PR title
+  body: string,    # PR body
+  --merge-immediately = false, # Merge the PR immediately after creation
+] {
+  let repo_data = (
+    api "get" $"/repos/($owner)/($repo)"
+  )
+  let base = $repo_data.default_branch
+
+  let pr = api "post" $"/repos/($owner)/($repo)/pulls" {
+    title: $title,
+    body: $body,
+    head: $branch,
+    base: $base,
+  }
+
+  if $merge_immediately {
+    api "put" $"/repos/($owner)/($repo)/pulls/($pr.number)/merge" {
+      merge_method: "squash",
+    }
+  }
+}
+
 # Add a reaction emoji to a GitHub issue comment using the Reactions API.
 def react [owner: string, repo: string, comment_id: int, reaction: string] {
   api "post" $"/repos/($owner)/($repo)/issues/comments/($comment_id)/reactions" {
@@ -764,6 +835,7 @@ def api [
     "get" => { http get $url --headers $headers },
     "post" => { http post $url --headers $headers --content-type application/json $body },
     "patch" => { http patch $url --headers $headers --content-type application/json $body },
+    "put" => { http put $url --headers $headers --content-type application/json $body },
     _ => { error make { msg: $"Unsupported HTTP method: ($method)" } }
   }
 }
