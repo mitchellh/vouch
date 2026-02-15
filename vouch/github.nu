@@ -1,6 +1,7 @@
 # GitHub API utilities and CLI commands for Nu scripts
 
 use file.nu [default-path, "from td", init-file, open-file, "to td"]
+use git.nu [commit-and-push]
 use lib.nu [add-user, check-user, denounce-user, parse-comment, remove-user]
 
 # Check if a PR author is a vouched contributor.
@@ -319,6 +320,8 @@ export def gh-manage-by-issue [
   --allow-unvouch = true,  # Enable unvouch handling
   --roles: list<string> = [], # Allowed role names (default: [admin maintain write triage])
   --vouched-managers: record, # Optional managers file config
+  --commit = true,         # Commit and push changes
+  --commit-message: string = "", # Git commit message
   --dry-run = true,        # Print what would happen without making changes
 ] {
   if ($repo | is-empty) {
@@ -329,18 +332,44 @@ export def gh-manage-by-issue [
 
   let owner = ($repo | split row "/" | first)
   let repo_name = ($repo | split row "/" | last)
-  let issue_data = api "get" $"/repos/($owner)/($repo_name)/issues/($issue_id)"
-  let comment_data = api "get" $"/repos/($owner)/($repo_name)/issues/comments/($comment_id)"
+  let issue_data = (
+    api "get"
+      $"/repos/($owner)/($repo_name)/issues/($issue_id)"
+  )
+  let comment_data = (
+    api "get"
+      $"/repos/($owner)/($repo_name)/issues/comments/($comment_id)"
+  )
 
   let issue_author = $issue_data.user.login
   let commenter = $comment_data.user.login
-  let comment_body = ($comment_data.body | default "" | str trim)
+  let comment_body = (
+    $comment_data.body | default "" | str trim
+  )
 
-  let vouch_keywords = if ($vouch_keyword | is-empty) { ["vouch"] } else { $vouch_keyword }
-  let denounce_keywords = if ($denounce_keyword | is-empty) { ["denounce"] } else { $denounce_keyword }
-  let unvouch_keywords = if ($unvouch_keyword | is-empty) { ["unvouch"] } else { $unvouch_keyword }
+  let vouch_keywords = if ($vouch_keyword | is-empty) {
+    ["vouch"]
+  } else {
+    $vouch_keyword
+  }
+  let denounce_keywords = if ($denounce_keyword | is-empty) {
+    ["denounce"]
+  } else {
+    $denounce_keyword
+  }
+  let unvouch_keywords = if ($unvouch_keyword | is-empty) {
+    ["unvouch"]
+  } else {
+    $unvouch_keyword
+  }
 
-  let parsed = parse-comment $comment_body --vouch-keyword $vouch_keywords --denounce-keyword $denounce_keywords --unvouch-keyword $unvouch_keywords --allow-vouch=$allow_vouch --allow-denounce=$allow_denounce --allow-unvouch=$allow_unvouch
+  let parsed = (parse-comment $comment_body
+    --vouch-keyword $vouch_keywords
+    --denounce-keyword $denounce_keywords
+    --unvouch-keyword $unvouch_keywords
+    --allow-vouch=$allow_vouch
+    --allow-denounce=$allow_denounce
+    --allow-unvouch=$allow_unvouch)
 
   if $parsed.action == null {
     print "Comment does not match any enabled action"
@@ -357,9 +386,19 @@ export def gh-manage-by-issue [
   }
 
   let target_user = $parsed.user | default $issue_author
-  let result = gh-apply-action $parsed.action $target_user $parsed.reason $file --dry-run=$dry_run
+  let prior = open -r $file
+  let result = (gh-apply-action
+    $parsed.action $target_user $parsed.reason $file
+    --dry-run=$dry_run)
 
-  if $result.acted {
+  if $result.acted and $commit {
+    (commit-and-push $file
+      --message $commit_message
+      --retry 3
+      --retry-action {
+        $prior | save -f $file
+        gh-apply-action $parsed.action $target_user $parsed.reason $file
+      })
     try { react $owner $repo_name $comment_id "+1" }
   }
 
@@ -425,6 +464,8 @@ export def gh-manage-by-discussion [
   --allow-unvouch = true,  # Enable unvouch handling
   --roles: list<string> = [], # Allowed role names (default: [admin maintain write triage])
   --vouched-managers: record, # Optional managers file config
+  --commit = true,         # Commit and push changes
+  --commit-message: string = "", # Git commit message
   --dry-run = true,        # Print what would happen without making changes
 ] {
   if ($repo | is-empty) {
@@ -436,23 +477,49 @@ export def gh-manage-by-discussion [
   let owner = ($repo | split row "/" | first)
   let repo_name = ($repo | split row "/" | last)
 
-  const gql_dir = (path self | path dirname | path join "gql")
-  let query = open -r ([$gql_dir "gh-discussion-comment.gql"] | path join)
+  const gql_dir = (
+    path self | path dirname | path join "gql"
+  )
+  let query = open -r (
+    [$gql_dir "gh-discussion-comment.gql"] | path join
+  )
   let result = graphql $query --variables {
     owner: $owner,
     repo_name: $repo_name,
     discussion_number: $discussion_number,
     comment_node_id: $comment_node_id,
   }
-  let discussion_author = $result.data.repository.discussion.author.login
+  let discussion_author = (
+    $result.data.repository.discussion.author.login
+  )
   let commenter = $result.data.node.author.login
-  let body = ($result.data.node.body | default "" | str trim)
+  let body = (
+    $result.data.node.body | default "" | str trim
+  )
 
-  let vouch_keywords = if ($vouch_keyword | is-empty) { ["vouch"] } else { $vouch_keyword }
-  let denounce_keywords = if ($denounce_keyword | is-empty) { ["denounce"] } else { $denounce_keyword }
-  let unvouch_keywords = if ($unvouch_keyword | is-empty) { ["unvouch"] } else { $unvouch_keyword }
+  let vouch_keywords = if ($vouch_keyword | is-empty) {
+    ["vouch"]
+  } else {
+    $vouch_keyword
+  }
+  let denounce_keywords = if ($denounce_keyword | is-empty) {
+    ["denounce"]
+  } else {
+    $denounce_keyword
+  }
+  let unvouch_keywords = if ($unvouch_keyword | is-empty) {
+    ["unvouch"]
+  } else {
+    $unvouch_keyword
+  }
 
-  let parsed = parse-comment $body --vouch-keyword $vouch_keywords --denounce-keyword $denounce_keywords --unvouch-keyword $unvouch_keywords --allow-vouch=$allow_vouch --allow-denounce=$allow_denounce --allow-unvouch=$allow_unvouch
+  let parsed = (parse-comment $body
+    --vouch-keyword $vouch_keywords
+    --denounce-keyword $denounce_keywords
+    --unvouch-keyword $unvouch_keywords
+    --allow-vouch=$allow_vouch
+    --allow-denounce=$allow_denounce
+    --allow-unvouch=$allow_unvouch)
 
   if $parsed.action == null {
     print "Comment does not match any enabled action"
@@ -469,9 +536,19 @@ export def gh-manage-by-discussion [
   }
 
   let target_user = $parsed.user | default $discussion_author
-  let result = gh-apply-action $parsed.action $target_user $parsed.reason $file --dry-run=$dry_run
+  let prior = open -r $file
+  let result = (gh-apply-action
+    $parsed.action $target_user $parsed.reason $file
+    --dry-run=$dry_run)
 
-  if $result.acted {
+  if $result.acted and $commit {
+    (commit-and-push $file
+      --message $commit_message
+      --retry 3
+      --retry-action {
+        $prior | save -f $file
+        gh-apply-action $parsed.action $target_user $parsed.reason $file
+      })
     try { react-graphql $comment_node_id "+1" }
   }
 
