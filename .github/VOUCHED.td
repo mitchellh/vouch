@@ -14,7 +14,6 @@ doprz
 ericallam
 faukah
 meherhendi
-mitchellh
 pavelzw
 r44vc0rp
 rickhanlonii
