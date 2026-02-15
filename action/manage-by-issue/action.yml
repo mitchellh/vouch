@@ -28,12 +28,12 @@ inputs:
     description: "Print what would happen without making changes."
     required: false
     default: "false"
-  roles:
-    description: "Comma-separated list of GitHub role names allowed to manage (default: admin,maintain,write,triage)."
-    required: false
-    default: ""
   repo:
     description: "Repository in 'owner/repo' format (default: current repository)."
+    required: false
+    default: ""
+  roles:
+    description: "Comma-separated list of GitHub role names allowed to manage (default: admin,maintain,write,triage)."
     required: false
     default: ""
   unvouch-keyword:
@@ -46,6 +46,18 @@ inputs:
     default: ""
   vouched-file:
     description: "Path to the vouched contributors file (empty = auto-detect)."
+    required: false
+    default: ""
+  vouched-managers-file:
+    description: "Path to managers VOUCHED file (empty = disable managers check)."
+    required: false
+    default: ""
+  vouched-managers-ref:
+    description: "Git ref for the managers file (default: repository default branch)."
+    required: false
+    default: ""
+  vouched-managers-repo:
+    description: "Repository in 'owner/repo' format for managers file (default: target repo)."
     required: false
     default: ""
 
@@ -70,6 +82,15 @@ runs:
         let denounce_kw = "${{ inputs.denounce-keyword }}" | split row "," | each { str trim } | where { $in | is-not-empty }
         let unvouch_kw = "${{ inputs.unvouch-keyword }}" | split row "," | each { str trim } | where { $in | is-not-empty }
         let roles = "${{ inputs.roles }}" | split row "," | each { str trim } | where { $in | is-not-empty }
+        let vouched_managers = if ("${{ inputs.vouched-managers-file }}" | is-not-empty) {
+          {
+            repo: "${{ inputs.vouched-managers-repo }}"
+            file: "${{ inputs.vouched-managers-file }}"
+            ref: "${{ inputs.vouched-managers-ref }}"
+          }
+        } else {
+          null
+        }
 
         let status = (gh-manage-by-issue
           ${{ inputs.issue-id }}
@@ -83,6 +104,7 @@ runs:
           --allow-denounce=${{ inputs.allow-denounce }}
           --allow-unvouch=${{ inputs.allow-unvouch }}
           --roles $roles
+          --vouched-managers $vouched_managers
           --dry-run=${{ inputs.dry-run }}
         )
         $"status=($status)" | save --append $env.GITHUB_OUTPUT

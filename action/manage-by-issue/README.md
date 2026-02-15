@@ -41,20 +41,23 @@ jobs:
 
 ## Inputs
 
-| Name               | Required | Default   | Description                                                                                                                                                        |
-| ------------------ | -------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `comment-id`       | Yes      |           | GitHub comment ID                                                                                                                                                  |
-| `issue-id`         | Yes      |           | GitHub issue number                                                                                                                                                |
-| `repo`             | Yes      |           | Repository in `owner/repo` format                                                                                                                                  |
-| `allow-denounce`   | No       | `"true"`  | Enable denounce handling                                                                                                                                           |
-| `allow-unvouch`    | No       | `"true"`  | Enable unvouch handling                                                                                                                                            |
-| `allow-vouch`      | No       | `"true"`  | Enable vouch handling                                                                                                                                              |
-| `denounce-keyword` | No       | `""`      | Comma-separated keywords that trigger denouncing (default: `denounce`)                                                                                             |
-| `dry-run`          | No       | `"false"` | Print what would happen without making changes                                                                                                                     |
-| `roles`            | No       | `""`      | Comma-separated role names allowed to manage (default: `admin,maintain,write,triage`). When empty, also accepts the legacy `permission` values `admin` or `write`. |
-| `unvouch-keyword`  | No       | `""`      | Comma-separated keywords that trigger unvouching (default: `unvouch`)                                                                                              |
-| `vouch-keyword`    | No       | `""`      | Comma-separated keywords that trigger vouching (default: `vouch`)                                                                                                  |
-| `vouched-file`     | No       | `""`      | Path to vouched contributors file (empty = auto-detect)                                                                                                            |
+| Name                    | Required | Default   | Description                                                                                                                                                        |
+| ----------------------- | -------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `comment-id`            | Yes      |           | GitHub comment ID                                                                                                                                                  |
+| `issue-id`              | Yes      |           | GitHub issue number                                                                                                                                                |
+| `repo`                  | Yes      |           | Repository in `owner/repo` format                                                                                                                                  |
+| `allow-denounce`        | No       | `"true"`  | Enable denounce handling                                                                                                                                           |
+| `allow-unvouch`         | No       | `"true"`  | Enable unvouch handling                                                                                                                                            |
+| `allow-vouch`           | No       | `"true"`  | Enable vouch handling                                                                                                                                              |
+| `denounce-keyword`      | No       | `""`      | Comma-separated keywords that trigger denouncing (default: `denounce`)                                                                                             |
+| `dry-run`               | No       | `"false"` | Print what would happen without making changes                                                                                                                     |
+| `roles`                 | No       | `""`      | Comma-separated role names allowed to manage (default: `admin,maintain,write,triage`). When empty, also accepts the legacy `permission` values `admin` or `write`. |
+| `unvouch-keyword`       | No       | `""`      | Comma-separated keywords that trigger unvouching (default: `unvouch`)                                                                                              |
+| `vouch-keyword`         | No       | `""`      | Comma-separated keywords that trigger vouching (default: `vouch`)                                                                                                  |
+| `vouched-file`          | No       | `""`      | Path to vouched contributors file (empty = auto-detect)                                                                                                            |
+| `vouched-managers-file` | No       | `""`      | Path to managers VOUCHED file (empty = disable managers check)                                                                                                     |
+| `vouched-managers-ref`  | No       | `""`      | Git ref for the managers file (empty = default branch)                                                                                                             |
+| `vouched-managers-repo` | No       | `""`      | Repository in `owner/repo` format for managers file (empty = target repo)                                                                                          |
 
 ## Outputs
 

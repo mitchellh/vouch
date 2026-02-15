@@ -318,6 +318,7 @@ export def gh-manage-by-issue [
   --allow-denounce = true, # Enable denounce handling
   --allow-unvouch = true,  # Enable unvouch handling
   --roles: list<string> = [], # Allowed role names (default: [admin maintain write triage])
+  --vouched-managers: record, # Optional managers file config
   --dry-run = true,        # Print what would happen without making changes
 ] {
   if ($repo | is-empty) {
@@ -346,7 +347,11 @@ export def gh-manage-by-issue [
     return "unchanged"
   }
 
-  if not (can-manage $commenter $owner $repo_name --roles $roles) {
+  if not (
+    can-manage $commenter $owner $repo_name
+      --roles $roles
+      --vouched-managers $vouched_managers
+  ) {
     print $"($commenter) does not have sufficient access"
     return "unchanged"
   }
@@ -419,6 +424,7 @@ export def gh-manage-by-discussion [
   --allow-denounce = true, # Enable denounce handling
   --allow-unvouch = true,  # Enable unvouch handling
   --roles: list<string> = [], # Allowed role names (default: [admin maintain write triage])
+  --vouched-managers: record, # Optional managers file config
   --dry-run = true,        # Print what would happen without making changes
 ] {
   if ($repo | is-empty) {
@@ -453,7 +459,11 @@ export def gh-manage-by-discussion [
     return "unchanged"
   }
 
-  if not (can-manage $commenter $owner $repo_name --roles $roles) {
+  if not (
+    can-manage $commenter $owner $repo_name
+      --roles $roles
+      --vouched-managers $vouched_managers
+  ) {
     print $"($commenter) does not have sufficient access"
     return "unchanged"
   }
@@ -567,12 +577,17 @@ def gh-apply-action [
 # Returns a record with:
 #   - status: "bot", "collaborator", "vouched", "denounced", or "unknown"
 #   - permission: collaborator permission level (only set for "collaborator" status)
+#
+# By default, collaborator permissions can short-circuit the check. Use
+# `--allow-collaborator=false` when you only want file-based status.
 export def gh-check-user [
   user: string,            # GitHub username to check
   --repo (-R): string,     # Repository in "owner/repo" format
   --vouched-repo: string,  # Repository for the vouched file (defaults to --repo)
   --vouched-file: string,  # Path to vouched contributors file in the repo
+  --vouched-ref: string,   # Git ref for the vouched file (defaults to repo default branch)
   --default-branch: string, # Default branch of the repo (fetched if not set)
+  --allow-collaborator = true, # Allow collaborator permissions to short-circuit
 ] {
   let repo_parts = ($repo | split row "/" | {owner: $in.0, name: $in.1})
   let vr = if ($vouched_repo | default "" | is-empty) { $repo } else { $vouched_repo }
@@ -585,18 +600,22 @@ export def gh-check-user [
   }
 
   # See if this user has special permissions for the target repo.
-  let permission = try {
-    (api "get"
-      $"/repos/($repo_parts.owner)/($repo_parts.name)/collaborators/($user)/permission"
-      | get permission)
-  } catch {
-    null
-  }
-  if $permission in ["admin", "write"] {
-    return { status: "collaborator", permission: $permission }
+  if $allow_collaborator {
+    let permission = try {
+      (api "get"
+        $"/repos/($repo_parts.owner)/($repo_parts.name)/collaborators/($user)/permission"
+        | get permission)
+    } catch {
+      null
+    }
+    if $permission in ["admin", "write"] {
+      return { status: "collaborator", permission: $permission }
+    }
   }
 
-  let branch = if ($default_branch | default "" | is-not-empty) {
+  let branch = if ($vouched_ref | default "" | is-not-empty) {
+    $vouched_ref
+  } else if ($default_branch | default "" | is-not-empty) {
     $default_branch
   } else {
     (api "get"
@@ -720,12 +739,20 @@ def get-token [] {
 # `permission` field of the permission GitHub REST API. If this is not
 # specified, the default value is [admin, write] only if `--roles` is
 # not set.
+#
+# If `--vouched-managers` is set, the managers file is also checked.
+# Anyone listed as "vouched" in that file can manage vouches.
+# The record fields are:
+#   - repo: owner/repo for the managers file (empty = target repo)
+#   - file: path to the managers VOUCHED file (required)
+#   - ref: git ref to read from (empty = default branch)
 export def can-manage [
   username: string, # Username of the GitHub user to check
   repo_owner: string, # Repository owner (e.g., "mitchellh") for vouch file
   repo_name: string, # Repository name (e.g., "vouch") for vouch file
   --roles: list<string>, # Roles to allow
-  --legacy-permissions: list<string>, # Legacy permissions to allow 
+  --legacy-permissions: list<string>, # Legacy permissions to allow
+  --vouched-managers: record, # Optional managers file config
 ] {
   let real_roles = $roles | default --empty [
     admin
@@ -751,11 +778,39 @@ export def can-manage [
   let api_perm = try {
     api "get" $"/repos/($repo_owner)/($repo_name)/collaborators/($username)/permission"
   } catch {
+    null
+  }
+
+  if $api_perm != null {
+    let role_allowed = (($api_perm.role_name in $real_roles)
+      or ($api_perm.permission in $real_legacy_perms))
+    if $role_allowed {
+      return true
+    }
+  }
+
+  # No managers file configured, so the user isn't eligible.
+  if ($vouched_managers | default null) == null {
     return false
   }
 
-  return (
-    ($api_perm.role_name in $real_roles)
-      or ($api_perm.permission in $real_legacy_perms)
-  )
+  # Managers file is required to evaluate eligibility.
+  let file = $vouched_managers.file | default ""
+  if ($file | is-empty) {
+    return false
+  }
+
+  # Check only the managers file; collaborator status shouldn't bypass it.
+  let repo = if ($vouched_managers.repo | default "" | is-empty) {
+    $"($repo_owner)/($repo_name)"
+  } else {
+    $vouched_managers.repo
+  }
+  let result = (gh-check-user $username
+    --repo $"($repo_owner)/($repo_name)"
+    --vouched-repo $repo
+    --vouched-file $file
+    --vouched-ref ($vouched_managers.ref | default "")
+    --allow-collaborator=false)
+  $result.status == "vouched"
 }

@@ -203,6 +203,8 @@ Responds to comments from collaborators with sufficient role
 - `denounce @user <reason>` — denounces a specific user with a reason
 
 Keywords are customizable via `--vouch-keyword` and `--denounce-keyword`.
+You can also allow specific managers listed in a separate VOUCHED file
+via `--vouched-managers`.
 
 Outputs status: `vouched`, `denounced`, or `unchanged`.
 
