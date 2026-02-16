@@ -825,7 +825,11 @@ def react-graphql [node_id: string, reaction: string] {
   }
 }
 
-# Make a GitHub API request with proper headers
+# Make a GitHub API request with proper headers.
+#
+# Retries on transient server errors (5xx) with exponential
+# backoff. Retries up to 5 times with delays of
+# 1s, 2s, 4s, 8s, 16s (~30s total).
 def api [
   method: string,  # HTTP method (get, post, patch, etc.)
   endpoint: string # API endpoint (e.g., /repos/owner/repo/issues/1/comments)
@@ -838,17 +842,51 @@ def api [
     X-GitHub-Api-Version "2022-11-28"
   ]
 
-  match $method {
-    "get" => { http get $url --headers $headers },
-    "post" => { http post $url --headers $headers --content-type application/json $body },
-    "patch" => { http patch $url --headers $headers --content-type application/json $body },
-    "put" => { http put $url --headers $headers --content-type application/json $body },
-    "delete" => { http delete $url --headers $headers },
-    _ => { error make { msg: $"Unsupported HTTP method: ($method)" } }
+  mut attempt = 0
+  loop {
+    let resp = (match $method {
+      "get" => { http get --allow-errors $url --headers $headers | api-check-status },
+      "post" => { http post --allow-errors $url --headers $headers --content-type application/json $body | api-check-status },
+      "patch" => { http patch --allow-errors $url --headers $headers --content-type application/json $body | api-check-status },
+      "put" => { http put --allow-errors $url --headers $headers --content-type application/json $body | api-check-status },
+      "delete" => { http delete --allow-errors $url --headers $headers | api-check-status },
+      _ => { error make { msg: $"Unsupported HTTP method: ($method)" } }
+    })
+
+    if $resp.status >= 500 and $attempt < 5 {
+      $attempt += 1
+      sleep (1sec * (2 ** ($attempt - 1)))
+      continue
+    }
+
+    if $resp.status >= 400 {
+      error make {
+        msg: $"($resp.status) ($method | str upcase) ($url)"
+      }
+    }
+
+    return $resp.body
+  }
+}
+
+# Extract HTTP status from metadata, returning a
+# record with body and status fields.
+def api-check-status [] {
+  metadata access {|meta|
+    {
+      body: $in,
+      status: ($meta
+        | get -o http_response.status
+        | default 200),
+    }
   }
 }
 
 # Make a GitHub GraphQL API request.
+#
+# Retries on transient server errors (5xx) with exponential
+# backoff. Retries up to 5 times with delays of
+# 1s, 2s, 4s, 8s, 16s (~30s total).
 def graphql [
   query: string          # GraphQL query or mutation string
   --variables: record    # Optional GraphQL variables
@@ -864,11 +902,31 @@ def graphql [
     { query: $query, variables: $variables }
   } | to json
 
-  let response = http post $url --headers $headers --content-type application/json $payload
-  if ($response | get -o errors | default null) != null {
-    error make { msg: ($response.errors | to json) }
+  mut attempt = 0
+  loop {
+    let resp = (http post --allow-errors $url
+      --headers $headers
+      --content-type application/json $payload
+      | api-check-status)
+
+    if $resp.status >= 500 and $attempt < 5 {
+      $attempt += 1
+      sleep (1sec * (2 ** ($attempt - 1)))
+      continue
+    }
+
+    if $resp.status >= 400 {
+      error make {
+        msg: $"($resp.status) POST ($url)"
+      }
+    }
+
+    let response = $resp.body
+    if ($response | get -o errors | default null) != null {
+      error make { msg: ($response.errors | to json) }
+    }
+    return $response
   }
-  $response
 }
 
 # Get GitHub token from environment or gh CLI (cached in env)
