@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="FAQ.md">FAQ</a> · <a href="CONTRIBUTING.md">Contributing</a>
+  <a href="FAQ.md">FAQ</a> · <a href="COOKBOOK.md">Cookbook</a> · <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
 ---
