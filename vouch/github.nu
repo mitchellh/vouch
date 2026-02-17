@@ -11,6 +11,10 @@ use lib.nu [
   remove-user
 ]
 
+use template.nu
+const pr_template = path self ./templates/github-pr-unvouched
+const issue_template = path self ./templates/github-issue-unvouched
+
 # Check if a PR author is a vouched contributor.
 #
 # This checks if the PR author is:
@@ -23,6 +27,18 @@ use lib.nu [
 # When --require-vouch is false, only denounced users are blocked.
 #
 # When --auto-close is true and user is unvouched/denounced, the PR is closed.
+#
+# --template-file can be used to supply a path to a custom template, which
+# follows the string convention as seen in Nushell's "format pattern". Note the
+# following template arguments are supported:
+#
+#   * {author} - The pull request author
+#   * {owner} - The repository owner
+#   * {repo} - The repository name
+#   * {default_branch} - The repository default branch
+# 
+# See "vouch/templates/github-pr-unvouched" for the default PR template, which
+# can be used as an example.
 #
 # Outputs status: "skipped" (bot), "vouched", "allowed", or "closed".
 #
@@ -42,6 +58,7 @@ export def gh-check-pr [
   --repo (-R): string,         # Repository in "owner/repo" format (required)
   --vouched-repo: string,      # Repository for the vouched file (defaults to --repo)
   --vouched-file: string = ".github/VOUCHED.td", # Path to vouched contributors file in the repo
+  --template-file: string = $pr_template,        # Optional path to response template to use for unvouched users
   --require-vouch = true,      # Require users to be vouched (false = only block denounced)
   --auto-close = false,        # Automatically close PRs from unvouched/denounced users
   --dry-run = true,            # Print what would happen without making changes
@@ -117,11 +134,12 @@ export def gh-check-pr [
 
   print "Closing PR"
 
-  let message = $"Hi @($pr_author), thanks for your interest in contributing!
-
-  This project requires that pull request authors are vouched, and you are not in the list of vouched users. 
-
-This PR will be closed automatically. See https://github.com/($repo_parts.owner)/($repo_parts.name)/blob/($default_branch)/CONTRIBUTING.md for more details."
+  let message = {
+    author: $pr_author,
+    owner: $repo_parts.owner,
+    repo: $repo_parts.name,
+    default_branch: $default_branch,
+  } | template render (if ($template_file | is-not-empty) { $template_file } else $pr_template)
 
   if $dry_run {
     print "(dry-run) Would post comment and close PR"
@@ -152,6 +170,18 @@ This PR will be closed automatically. See https://github.com/($repo_parts.owner)
 #
 # When --auto-close is true and user is unvouched/denounced, the issue is closed.
 #
+# --template-file can be used to supply a path to a custom template, which
+# follows the string convention as seen in Nushell's "format pattern". Note the
+# following template arguments are supported:
+#
+#   * {author} - The issue author
+#   * {owner} - The repository owner
+#   * {repo} - The repository name
+#   * {default_branch} - The repository default branch
+# 
+# See "vouch/templates/github-issue-unvouched" for the default issue template,
+# which can be used as an example.
+#
 # Outputs status: "skipped" (bot), "vouched", "allowed", or "closed".
 #
 # Examples:
@@ -170,6 +200,7 @@ export def gh-check-issue [
   --repo (-R): string,           # Repository in "owner/repo" format (required)
   --vouched-repo: string,        # Repository for the vouched file (defaults to --repo)
   --vouched-file: string = ".github/VOUCHED.td", # Path to vouched contributors file in the repo
+  --template-file: string = $issue_template,     # Optional path to response template to use for unvouched users
   --require-vouch = true,        # Require users to be vouched (false = only block denounced)
   --auto-close = false,          # Automatically close issues from unvouched/denounced users
   --dry-run = true,              # Print what would happen without making changes
@@ -250,11 +281,12 @@ export def gh-check-issue [
 
   print "Closing issue"
 
-  let message = $"Hi @($issue_author), thanks for your interest!
-
-  This project requires that issue reporters are vouched, and you are not in the list of vouched users. 
-
-This issue will be closed automatically. See https://github.com/($owner)/($repo_name)/blob/($default_branch)/CONTRIBUTING.md for more details."
+  let message = {
+    author: $issue_author,
+    owner: $owner,
+    repo: $repo_name,
+    default_branch: $default_branch,
+  } | template render (if ($template_file | is-not-empty) { $template_file } else $issue_template)
 
   if $dry_run {
     print "(dry-run) Would post comment and close issue"
