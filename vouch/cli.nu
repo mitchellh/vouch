@@ -156,6 +156,7 @@ export def main [] {
   print ""
   print "GitHub integration:"
   print "  gh-check-pr         Check if a PR author is a vouched contributor"
+  print "  gh-sync-codeowners  Sync CODEOWNERS entries into the VOUCHED list"
   print "  gh-manage-by-discussion Manage contributor status via discussion comment"
   print "  gh-manage-by-issue  Manage contributor status via issue comment"
 }

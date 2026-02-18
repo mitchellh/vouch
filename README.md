@@ -85,6 +85,7 @@ See the linked README in the action directory for full usage details.
 | [check-user](action/check-user/README.md)                     | Any                   | Check if a GitHub user is vouched. Outputs the user's status and fails the step by default if the user is not vouched. Set `allow-fail` to only report via output.                         |
 | [manage-by-discussion](action/manage-by-discussion/README.md) | `discussion_comment`  | Let collaborators vouch, denounce, or unvouch users via discussion comments. Updates the vouched file and commits the change.                                                              |
 | [manage-by-issue](action/manage-by-issue/README.md)           | `issue_comment`       | Let collaborators vouch or denounce users via issue comments. Updates the vouched file and commits the change.                                                                             |
+| [sync-codeowners](action/sync-codeowners/README.md)           | Any                   | Sync CODEOWNERS owners into the vouch list by vouching missing users.                                                                                                                      |
 | [setup-vouch](action/setup-vouch/README.md)                   | Any                   | Install the `vouch` CLI on `PATH`. Nushell is installed automatically if not already available.                                                                                            |
 
 ### CLI

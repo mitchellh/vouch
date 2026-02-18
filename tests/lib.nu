@@ -1,7 +1,13 @@
 use std/assert
 
 use ../vouch/file.nu ["from td", "to td"]
-use ../vouch/lib.nu [add-user, check-user, denounce-user, parse-comment, remove-user]
+use ../vouch/lib.nu [
+  add-user
+  check-user
+  denounce-user
+  parse-comment
+  remove-user
+]
 
 def sample-records [] {
   "# Comment
@@ -268,3 +274,4 @@ export def "test parse-comment multiline body parses first line only" [] {
   assert equal $result.user "ditherdude"
   assert equal $result.reason ""
 }
+

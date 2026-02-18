@@ -2,7 +2,14 @@
 
 use file.nu [default-path, "from td", init-file, open-file, "to td"]
 use git.nu [commit-and-push]
-use lib.nu [add-user, check-user, denounce-user, parse-comment, remove-user]
+use codeowners.nu [parse-codeowners]
+use lib.nu [
+  add-user
+  check-user
+  denounce-user
+  parse-comment
+  remove-user
+]
 
 # Check if a PR author is a vouched contributor.
 #
@@ -595,6 +602,217 @@ export def gh-manage-by-discussion [
   }
 
   $result.status
+}
+
+# Sync CODEOWNERS entries into the vouched list.
+#
+# This reads the CODEOWNERS file, expands any team owners to their
+# members, and ensures those users are vouched in the VOUCHED file.
+#
+# This will only ADD users to the vouched list, it doesn't unvouch
+# anyone. This is because its impossible to tell who was vouched 
+# separately from being a codeowner, so we want to avoid accidentally 
+# unvouching users if the CODEOWNERS file or team membership is changed.
+#
+# Note that if a user is denounced, this will replace them with a
+# vouched user, because we expect that everyone in a codeowner is
+# trusted.
+#
+# When --dry-run is true (default), no changes are written.
+#
+# Outputs status: "updated" or "unchanged".
+export def gh-sync-codeowners [
+  --repo (-R): string,        # Repository in "owner/repo" format
+  --codeowners-file: string = "", # Path to CODEOWNERS file
+  --vouched-file: string = "", # Path to vouched contributors file
+  --commit = true,            # Commit and push changes
+  --commit-message: string = "", # Git commit message
+  --pull-request = false,     # Create a pull request instead of pushing
+  --merge-immediately = false, # Merge the pull request after creation
+  --dry-run = true,           # Print what would happen without changes
+] {
+  if ($repo | is-empty) {
+    error make { msg: "--repo is required" }
+  }
+
+  let owner = ($repo | split row "/" | first)
+  let repo_name = ($repo | split row "/" | last)
+  let codeowners_path = resolve-codeowners-file $codeowners_file
+  let file = resolve-vouched-file $vouched_file
+
+  # Parse the CODEOWNERS file and extract all owner handles.
+  let handles = (
+    open -r $codeowners_path
+      | parse-codeowners
+      | get owner
+  )
+
+  # Separate handles into team paths (org/team) and
+  # individual user handles.
+  let team_paths = (
+    $handles
+    | where { |o| $o | str contains "/" }
+  )
+  let user_handles = (
+    $handles
+    | where { |o| not ($o | str contains "/") }
+  )
+
+  # Resolve team paths into individual members by querying
+  # the GitHub API for each team's membership.
+  mut team_members = []
+  for team_path in $team_paths {
+    let parts = ($team_path | split row "/" --number 2)
+    let org = ($parts | first)
+    let team = ($parts | get 1)
+    let members = gh-team-members $org $team
+    $team_members = ($team_members | append $members)
+  }
+
+  # Combine individual handles and resolved team members
+  # into a single deduplicated list of users.
+  let users = (
+    $user_handles
+    | append $team_members
+    | uniq
+  )
+
+  if ($users | is-empty) {
+    error make { msg: "No codeowner users found." }
+  }
+
+  if not ($file | path exists) {
+    init-file $file
+  }
+
+  # Walk through each codeowner user and add them to the
+  # vouched list if they aren't already vouched.
+  let records = open-file $file
+  mut updated = $records
+  mut added = []
+  for user in $users {
+    let status = (
+      $updated
+      | check-user $user --default-platform github
+    )
+
+    if $status != "vouched" {
+      $updated = (
+        $updated
+        | add-user $user --default-platform github
+      )
+      $added = ($added | append $user)
+    }
+  }
+
+  # If nothing changed, bail early.
+  let changed = ($added | is-not-empty)
+  if not $changed {
+    print "All CODEOWNERS users are already vouched"
+    return "unchanged"
+  }
+
+  let added_users = ($added | uniq | sort -i)
+
+  if $dry_run {
+    print (
+      $"(dry-run) Would add ($added_users | length) "
+      + "CODEOWNERS users to the VOUCHED list"
+    )
+    return "updated"
+  }
+
+  # Write the updated vouched list to disk.
+  $updated | to td | save -f $file
+  print (
+    $"Added ($added_users | length) CODEOWNERS "
+    + $"users to ($file)"
+  )
+
+  let message = (
+    $commit_message
+    | default -e "Sync CODEOWNERS vouch list"
+  )
+
+  # Commit and optionally push or open a PR. When pushing
+  # directly (no PR), a retry action re-applies the additions
+  # on top of the latest file in case of concurrent updates.
+  if $commit {
+    if $pull_request {
+      let branch = (commit-and-push $file
+        --message $message
+        --branch "vouch/")
+      let title = ($message | lines | first)
+      let body = (
+        $"Sync CODEOWNERS owners from ($codeowners_path)."
+      )
+      (open-pr $owner $repo_name $branch $title $body
+        --merge-immediately=$merge_immediately)
+    } else {
+      let to_add = $added_users
+      (commit-and-push $file
+        --message $message
+        --retry 3
+        --retry-action {
+          let current = open-file $file
+          mut retry_records = $current
+          for user in $to_add {
+            $retry_records = (
+              $retry_records
+              | add-user $user --default-platform github
+            )
+          }
+          $retry_records | to td | save -f $file
+        })
+    }
+  }
+
+  "updated"
+}
+
+# Resolve the CODEOWNERS file path, falling back to defaults.
+def resolve-codeowners-file [codeowners_file: string] {
+  if ($codeowners_file | is-not-empty) {
+    if not ($codeowners_file | path exists) {
+      error make {
+        msg: $"CODEOWNERS file not found: ($codeowners_file)"
+      }
+    }
+    return $codeowners_file
+  }
+
+  if ("CODEOWNERS" | path exists) {
+    return "CODEOWNERS"
+  }
+
+  if (".github/CODEOWNERS" | path exists) {
+    return ".github/CODEOWNERS"
+  }
+
+  error make { msg: "CODEOWNERS file not found" }
+}
+
+# Fetch all members of a GitHub team (paginated).
+def gh-team-members [org: string, team: string] {
+  mut page = 1
+  mut members = []
+
+  loop {
+    let result = (api "get" (
+      $"/orgs/($org)/teams/($team)/members?"
+      + $"per_page=100&page=($page)"
+    ))
+
+    if ($result | is-empty) {
+      break
+    }
+
+    let logins = ($result | each { |item| $item.login })
+    $members = ($members | append $logins)
+    $page += 1
+  }
+
+  $members | uniq
 }
 
 # Resolve the vouched file path, falling back to default-path or .github/VOUCHED.td.

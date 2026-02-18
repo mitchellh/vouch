@@ -17,6 +17,7 @@ export use github.nu [
   gh-check-user
   gh-manage-by-discussion
   gh-manage-by-issue
+  gh-sync-codeowners
 ]
 
 # This exposes the function so `open <file>.td` works.
@@ -29,4 +30,3 @@ export use file.nu [
 
 # The API if people want to use this as a Nu library.
 export module lib.nu
-

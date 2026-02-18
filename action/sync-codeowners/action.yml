@@ -1,0 +1,55 @@
+name: Sync Codeowners
+description: "Sync CODEOWNERS entries into the VOUCHED list."
+
+inputs:
+  repo:
+    description: "Repository in 'owner/repo' format (default: current)."
+    required: false
+    default: ""
+  codeowners-file:
+    description: "Path to CODEOWNERS file (empty = auto-detect)."
+    required: false
+    default: ""
+  vouched-file:
+    description: "Path to the VOUCHED file (empty = auto-detect)."
+    required: false
+    default: ""
+  commit-message:
+    description: "Commit message override."
+    required: false
+    default: ""
+  merge-immediately:
+    description: "Merge the pull request immediately after creation."
+    required: false
+    default: "false"
+  pull-request:
+    description: "Create a pull request instead of pushing directly."
+    required: false
+    default: "false"
+
+outputs:
+  status:
+    description: "Result status: updated or unchanged"
+    value: ${{ steps.run.outputs.status }}
+
+runs:
+  using: composite
+  steps:
+    - uses: hustcer/setup-nu@920172d92eb04671776f3ba69d605d3b09351c30 # v3.22
+      with:
+        version: "*"
+
+    - id: run
+      shell: nu {0}
+      run: |
+        use "${{ github.action_path }}/../../vouch" *
+
+        let status = (gh-sync-codeowners
+          --repo "${{ inputs.repo || github.repository }}"
+          --codeowners-file "${{ inputs.codeowners-file }}"
+          --vouched-file "${{ inputs.vouched-file }}"
+          --commit-message "${{ inputs.commit-message }}"
+          --pull-request=${{ inputs.pull-request }}
+          --merge-immediately=${{ inputs.merge-immediately }}
+        )
+        $"status=($status)" | save --append $env.GITHUB_OUTPUT
