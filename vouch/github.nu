@@ -718,7 +718,8 @@ export def gh-sync-codeowners [
 
   if $dry_run {
     print (
-      $"(dry-run) Would add ($added_users | length) "
+      "(dry-run) Would add "
+      + $"($added_users | length) "
       + "CODEOWNERS users to the VOUCHED list"
     )
     return "updated"
@@ -857,7 +858,7 @@ def gh-apply-action [
     }
 
     if $dry_run {
-      print $"(dry-run) Would add ($target_user) to ($file)"
+      print ("(dry-run) Would add " + $"($target_user) to ($file)")
       return { status: "vouched", acted: false }
     }
 
@@ -877,7 +878,7 @@ def gh-apply-action [
 
     if $dry_run {
       let entry = if ($reason | is-empty) { $"-($target_user)" } else { $"-($target_user) ($reason)" }
-      print $"(dry-run) Would add ($entry) to ($file)"
+      print ("(dry-run) Would add " + $"($entry) to ($file)")
       return { status: "denounced", acted: false }
     }
 
@@ -896,7 +897,7 @@ def gh-apply-action [
     }
 
     if $dry_run {
-      print $"(dry-run) Would remove ($target_user) from ($file)"
+      print ("(dry-run) Would remove " + $"($target_user) from ($file)")
       return { status: "unvouched", acted: false }
     }
 
