@@ -417,7 +417,7 @@ export def gh-manage-by-issue [
         | first
       )
       let comment_url = $"https://github.com/($owner)/($repo_name)/issues/($issue_id)#issuecomment-($comment_id)"
-      let body = $"Triggered by [comment]\(($comment_url)\) from @($commenter)."
+      let body = $"Triggered by [comment]\(($comment_url)\) from @($commenter).\n\n($parsed.action | str capitalize): @($target_user)"
       open-pr $owner $repo_name $branch $title $body --merge-immediately=$merge_immediately
     } else {
       (commit-and-push $file
@@ -589,7 +589,7 @@ export def gh-manage-by-discussion [
         | first
       )
       let discussion_url = $"https://github.com/($owner)/($repo_name)/discussions/($discussion_number)"
-      let body = $"Triggered by [discussion comment]\(($discussion_url)\) from @($commenter)."
+      let body = $"Triggered by [discussion comment]\(($discussion_url)\) from @($commenter).\n\n($parsed.action | str capitalize): @($target_user)"
       open-pr $owner $repo_name $branch $title $body --merge-immediately=$merge_immediately
     } else {
       (commit-and-push $file
@@ -746,9 +746,18 @@ export def gh-sync-codeowners [
         --message $message
         --branch "vouch/")
       let title = ($message | lines | first)
-      let body = (
-        $"Sync CODEOWNERS owners from ($codeowners_path)."
+      let user_list = (
+        $added_users
+        | each { |u| $"- @($u)" }
+        | str join "\n"
       )
+      let body = ([
+        $"Sync CODEOWNERS owners with vouch list."
+        ""
+        "## Added Users"
+        ""
+        $user_list
+      ] | str join "\n")
       (open-pr $owner $repo_name $branch $title $body
         --merge-immediately=$merge_immediately)
     } else {
