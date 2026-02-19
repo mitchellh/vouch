@@ -230,7 +230,8 @@ export def gh-check-issue [
     }
 
     api "patch" $"/repos/($owner)/($repo_name)/issues/($issue_number)" {
-      state: "closed"
+      state: "closed",
+      state_reason: "not_planned",
     }
 
     return "closed"
@@ -265,7 +266,8 @@ This issue will be closed automatically. See https://github.com/($owner)/($repo_
   }
 
   api "patch" $"/repos/($owner)/($repo_name)/issues/($issue_number)" {
-    state: "closed"
+    state: "closed",
+    state_reason: "not_planned",
   }
 
   return "closed"
