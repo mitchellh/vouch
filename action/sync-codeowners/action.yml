@@ -10,6 +10,10 @@ inputs:
     description: "Path to CODEOWNERS file (empty = auto-detect)."
     required: false
     default: ""
+  dry-run:
+    description: "Print what would happen without making changes."
+    required: false
+    default: "false"
   vouched-file:
     description: "Path to the VOUCHED file (empty = auto-detect)."
     required: false
@@ -51,5 +55,6 @@ runs:
           --commit-message "${{ inputs.commit-message }}"
           --pull-request=${{ inputs.pull-request }}
           --merge-immediately=${{ inputs.merge-immediately }}
+          --dry-run=${{ inputs.dry-run }}
         )
         $"status=($status)" | save --append $env.GITHUB_OUTPUT

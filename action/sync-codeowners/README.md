@@ -33,6 +33,7 @@ jobs:
 | `repo`              | No       | `""`      | Repository in `owner/repo` format (empty = current repository) |
 | `codeowners-file`   | No       | `""`      | Path to CODEOWNERS file (empty = auto-detect)                  |
 | `commit-message`    | No       | `""`      | Commit message override                                        |
+| `dry-run`           | No       | `"false"` | Print what would happen without making changes                 |
 | `merge-immediately` | No       | `"false"` | Merge the pull request immediately after creation              |
 | `pull-request`      | No       | `"false"` | Create a pull request instead of pushing directly              |
 | `vouched-file`      | No       | `""`      | Path to VOUCHED file (empty = auto-detect)                     |
