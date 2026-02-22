@@ -29,6 +29,10 @@ inputs:
     description: "Repository for the vouched file in 'owner/repo' format (default: same as repo)."
     required: false
     default: ""
+  template-file:
+    description: "An optional path to a response template to use for unvouched users."
+    required: false
+    default: ""
 
 outputs:
   status:
@@ -52,6 +56,7 @@ runs:
           --repo "${{ inputs.repo || github.repository }}"
           --vouched-repo "${{ inputs.vouched-repo }}"
           --vouched-file "${{ inputs.vouched-file }}"
+          --template-file "${{ inputs.template-file }}"
           --require-vouch=${{ inputs.require-vouch }}
           --auto-close=${{ inputs.auto-close }}
           --dry-run=${{ inputs.dry-run }}
