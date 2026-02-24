@@ -93,6 +93,26 @@ See the linked README in the action directory for full usage details.
 The CLI is implemented as a Nushell module and only requires
 Nushell to run. There are no other external dependencies.
 
+#### Installation
+
+*Using `nu`:*
+
+You can use the CLI via `nu` directly as long as `vouch` is on your library path:
+
+```nu
+use vouch *
+```
+
+*Using `pixi`:*
+
+`vouch` is available on [conda-forge](https://prefix.dev/conda-forge/vouch).
+
+```bash
+pixi global install vouch
+# run vouch without installing it
+pixi exec vouch
+```
+
 #### Integrated Help
 
 This is Nushell, so you can get help on any command:
