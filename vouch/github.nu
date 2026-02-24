@@ -551,18 +551,18 @@ export def gh-manage-by-discussion [
   let query = open -r (
     [$gql_dir "gh-discussion-comment.gql"] | path join
   )
-  let result = graphql $query --variables {
+  let comment_result = graphql $query --variables {
     owner: $owner,
     repo_name: $repo_name,
     discussion_number: $discussion_number,
     comment_node_id: $comment_node_id,
   }
   let discussion_author = (
-    $result.data.repository.discussion.author.login
+    $comment_result.data.repository.discussion.author.login
   )
-  let commenter = $result.data.node.author.login
+  let commenter = $comment_result.data.node.author.login
   let body = (
-    $result.data.node.body | default "" | str trim
+    $comment_result.data.node.body | default "" | str trim
   )
 
   let vouch_keywords = if ($vouch_keyword | is-empty) {
@@ -620,7 +620,9 @@ export def gh-manage-by-discussion [
         | lines
         | first
       )
-      let body = $"Triggered by [discussion comment]\(($result.data.node.url)\) from @($commenter).\n\n($parsed.action | str capitalize): @($target_user)"
+      let body = (
+        $"Triggered by [discussion comment]\(($comment_result.data.node.url)\) from @($commenter).\n\n($parsed.action | str capitalize): @($target_user)"
+      )
       open-pr $owner $repo_name $branch $title $body --merge-immediately=$merge_immediately
     } else {
       (commit-and-push $file
