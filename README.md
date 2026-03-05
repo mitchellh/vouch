@@ -223,6 +223,11 @@ $records | denounce-user "badactor" "reason"                 # returns updated t
 $records | remove-user "olduser"                             # returns updated table
 ```
 
+## Projects Using Vouch
+
+- [Ghostty](https://github.com/ghostty-org/ghostty) - Uses vouch to manage contributor trust via GitHub Actions.
+- [GitBaz](https://github.com/HappyHackingSpace/gitbaz) - Uses vouch in the repo and displays vouch status in its Chrome extension's contributor panel.
+
 ## Vouched File Format
 
 The vouch list is stored in a `.td` file. See
