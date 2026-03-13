@@ -59,3 +59,17 @@ jobs:
         run: nu tests/run.nu --slow
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  setup-vouch:
+    if: >
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name != github.repository)
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./action/setup-vouch
+      - run: vouch
+      - run: vouch add --help

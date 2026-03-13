@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+vouch_lib_dir="${VOUCH_LIB_DIR:-}"
+
+if [ -z "$vouch_lib_dir" ]; then
+  script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+  vouch_lib_dir="$(cd -- "$script_dir/../.." && pwd)/vouch"
+fi
+
+export VOUCH_LIB_DIR="$vouch_lib_dir"
+
+cmd=""
+for a in "$@"; do
+  cmd="$cmd $(printf '%q' "$a")"
+done
+
+# With no args, call 'vouch main' for usage info since bare
+# 'vouch' doesn't resolve via 'use vouch *'.
+if [ $# -eq 0 ]; then
+  cmd="vouch main"
+fi
+
+exec nu --no-config-file -c "use \"$VOUCH_LIB_DIR\" *; $cmd"
