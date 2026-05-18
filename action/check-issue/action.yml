@@ -9,6 +9,10 @@ inputs:
     description: "Automatically close issues from unvouched or denounced users."
     required: false
     default: "false"
+  auto-lock:
+    description: "Automatically lock issues after closing."
+    required: false
+    default: "false"
   dry-run:
     description: "Print what would happen without making changes."
     required: false
@@ -59,6 +63,7 @@ runs:
           --template-file "${{ inputs.template-file }}"
           --require-vouch=${{ inputs.require-vouch }}
           --auto-close=${{ inputs.auto-close }}
+          --auto-lock=${{ inputs.auto-lock }}
           --dry-run=${{ inputs.dry-run }}
         )
         $"status=($status)" | save --append $env.GITHUB_OUTPUT

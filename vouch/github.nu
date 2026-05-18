@@ -160,6 +160,7 @@ export def gh-check-pr [
 # When --require-vouch is false, only denounced users are blocked.
 #
 # When --auto-close is true and user is unvouched/denounced, the issue is closed.
+# When --auto-lock is true, the issue is also locked after closing.
 #
 # --template-file can be used to supply a path to a custom template, which
 # follows the string convention as seen in Nushell's "format pattern". Note the
@@ -176,6 +177,7 @@ export def gh-check-pr [
 # Outputs status: "skipped" (bot), "vouched", "allowed", or "closed".
 @example "Check issue author status (dry run)" { ./vouch.nu gh-check-issue 123 }
 @example "Auto-close unvouched issues" { ./vouch.nu gh-check-issue 123 --auto-close --dry-run=false }
+@example "Auto-close and lock" { ./vouch.nu gh-check-issue 123 --auto-close --auto-lock --dry-run=false }
 @example "Allow unvouched users, only block denounced" { ./vouch.nu gh-check-issue 123 --require-vouch=false --auto-close }
 export def gh-check-issue [
   issue_number: int,             # GitHub issue number
@@ -185,6 +187,7 @@ export def gh-check-issue [
   --template-file: string = $issue_template,     # Optional path to response template to use for unvouched users
   --require-vouch = true,        # Require users to be vouched (false = only block denounced)
   --auto-close = false,          # Automatically close issues from unvouched/denounced users
+  --auto-lock = false,           # Automatically lock issues after closing
   --dry-run = true,              # Print what would happen without making changes
 ] {
   if ($repo | is-empty) {
@@ -234,7 +237,11 @@ export def gh-check-issue [
     let message = "This issue has been automatically closed because the author is explicitly blocked in the vouch list."
 
     if $dry_run {
-      print "(dry-run) Would post comment and close issue"
+      if $auto_lock {
+        print "(dry-run) Would post comment, close, and lock issue"
+      } else {
+        print "(dry-run) Would post comment and close issue"
+      }
       return "closed"
     }
 
@@ -245,6 +252,10 @@ export def gh-check-issue [
     api "patch" $"/repos/($owner)/($repo_name)/issues/($issue_number)" {
       state: "closed",
       state_reason: "not_planned",
+    }
+
+    if $auto_lock {
+      api "put" $"/repos/($owner)/($repo_name)/issues/($issue_number)/lock" {}
     }
 
     return "closed"
@@ -271,7 +282,11 @@ export def gh-check-issue [
   } | template render (if ($template_file | is-not-empty) { $template_file } else $issue_template)
 
   if $dry_run {
-    print "(dry-run) Would post comment and close issue"
+    if $auto_lock {
+      print "(dry-run) Would post comment, close, and lock issue"
+    } else {
+      print "(dry-run) Would post comment and close issue"
+    }
     return "closed"
   }
 
@@ -282,6 +297,10 @@ export def gh-check-issue [
   api "patch" $"/repos/($owner)/($repo_name)/issues/($issue_number)" {
     state: "closed",
     state_reason: "not_planned",
+  }
+
+  if $auto_lock {
+    api "put" $"/repos/($owner)/($repo_name)/issues/($issue_number)/lock" {}
   }
 
   return "closed"
