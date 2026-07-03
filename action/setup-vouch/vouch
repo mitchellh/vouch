@@ -10,9 +10,22 @@ fi
 
 export VOUCH_LIB_DIR="$vouch_lib_dir"
 
+nu_lib_dir="${VOUCH_LIB_DIR//\\/\\\\}"
+nu_lib_dir="${nu_lib_dir//\"/\\\"}"
+
+quote_nu_arg() {
+  if [[ "$1" =~ ^[A-Za-z0-9_./:@%+=,-]+$ ]]; then
+    printf '%s' "$1"
+  else
+    local arg="${1//\\/\\\\}"
+    arg="${arg//\"/\\\"}"
+    printf '"%s"' "$arg"
+  fi
+}
+
 cmd=""
 for a in "$@"; do
-  cmd="$cmd $(printf '%q' "$a")"
+  cmd="$cmd $(quote_nu_arg "$a")"
 done
 
 # With no args, call 'vouch main' for usage info since bare
@@ -21,4 +34,4 @@ if [ $# -eq 0 ]; then
   cmd="vouch main"
 fi
 
-exec nu --no-config-file -c "use \"$VOUCH_LIB_DIR\" *; $cmd"
+exec nu --no-config-file -c "use \"$nu_lib_dir\" *; $cmd"
