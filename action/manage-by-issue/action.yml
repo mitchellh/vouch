@@ -100,9 +100,6 @@ runs:
           null
         }
 
-        let commit_url = $"($env.GITHUB_SERVER_URL)/${{ inputs.repo || github.repository }}/issues/${{ inputs.issue-id }}#issuecomment-${{ inputs.comment-id }}"
-        let commit_msg = $"Update VOUCHED list\n\n($commit_url)"
-
         let status = (gh-manage-by-issue
           ${{ inputs.issue-id }}
           ${{ inputs.comment-id }}
@@ -116,7 +113,6 @@ runs:
           --allow-unvouch=${{ inputs.allow-unvouch }}
           --roles $roles
           --vouched-managers $vouched_managers
-          --commit-message $commit_msg
           --pull-request=${{ inputs.pull-request }}
           --merge-immediately=${{ inputs.merge-immediately }}
           --dry-run=${{ inputs.dry-run }}
