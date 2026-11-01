@@ -355,7 +355,7 @@ export def gh-manage-by-issue [
   --roles: list<string> = [], # Allowed role names (default: [admin maintain write triage])
   --vouched-managers: record, # Optional managers file config
   --commit = true,         # Commit and push changes
-  --commit-message: string = "", # Git commit message
+  --commit-message: string = "", # Git commit message (default: "Update VOUCHED list" with a link to the comment)
   --pull-request = false,  # Create a pull request instead of pushing directly
   --merge-immediately = false, # Merge the pull request immediately after creation
   --dry-run = true,        # Print what would happen without making changes
@@ -381,6 +381,11 @@ export def gh-manage-by-issue [
   let commenter = $comment_data.user.login
   let comment_body = (
     $comment_data.body | default "" | str trim
+  )
+  let comment_url = $comment_data.html_url
+  let commit_message = (
+    $commit_message
+    | default -e $"Update VOUCHED list\n\n($comment_url)"
   )
 
   let vouch_keywords = if ($vouch_keyword | is-empty) {
@@ -438,7 +443,6 @@ export def gh-manage-by-issue [
         | lines
         | first
       )
-      let comment_url = $"https://github.com/($owner)/($repo_name)/issues/($issue_id)#issuecomment-($comment_id)"
       let body = $"Triggered by [comment]\(($comment_url)\) from @($commenter).\n\n($parsed.action | str capitalize): @($target_user)"
       open-pr $owner $repo_name $branch $title $body --merge-immediately=$merge_immediately
     } else {
@@ -511,7 +515,7 @@ export def gh-manage-by-discussion [
   --roles: list<string> = [], # Allowed role names (default: [admin maintain write triage])
   --vouched-managers: record, # Optional managers file config
   --commit = true,         # Commit and push changes
-  --commit-message: string = "", # Git commit message
+  --commit-message: string = "", # Git commit message (default: "Update VOUCHED list" with a link to the comment)
   --pull-request = false,  # Create a pull request instead of pushing directly
   --merge-immediately = false, # Merge the pull request immediately after creation
   --dry-run = true,        # Print what would happen without making changes
@@ -553,6 +557,11 @@ export def gh-manage-by-discussion [
   let commenter = $comment_result.data.node.author.login
   let body = (
     $comment_result.data.node.body | default "" | str trim
+  )
+  let comment_url = $comment_result.data.node.url
+  let commit_message = (
+    $commit_message
+    | default -e $"Update VOUCHED list\n\n($comment_url)"
   )
 
   let vouch_keywords = if ($vouch_keyword | is-empty) {
@@ -611,7 +620,7 @@ export def gh-manage-by-discussion [
         | first
       )
       let body = (
-        $"Triggered by [discussion comment]\(($comment_result.data.node.url)\) from @($commenter).\n\n($parsed.action | str capitalize): @($target_user)"
+        $"Triggered by [discussion comment]\(($comment_url)\) from @($commenter).\n\n($parsed.action | str capitalize): @($target_user)"
       )
       open-pr $owner $repo_name $branch $title $body --merge-immediately=$merge_immediately
     } else {
